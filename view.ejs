@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+    <link rel="stylesheet" href="/css/style.css">
+    <title>View all cars!</title>
+</head>
+<body>
+    <header>
+        <% if(emptyObj) { %>
+            <h1>There are currently no cars in the database :(</h1>
+        <% } else { %>
+            <h1>You're currently viewing all cars in the database</h1>
+        <% } %>
+    </header>
+
+    <main>
+        <ul id="car-list">
+            <% allCars.forEach(car => { %>
+                <li>
+                    <span class="blue">Make and model:</span> <%= car.brand %> <%= car.model %><br>
+                    <span class="blue">Plate:</span> <%= car.plate %> <br>
+                    <span class="blue">Colour:</span> <%= car.colour %> <br>
+                    <span class="blue">Prize:</span> <%= car.prize %> <br>
+                    <form method="POST" action="/cars/view/edit">
+                        <input style="display: none;" type="text" name="editId" value="<%= car._id %>"></input>
+                        <input type="submit" id="edit-button" value="Edit"></input> <br>
+                    </form>
+                    <form method="POST" action="/cars/view/delete">
+                        <input style="display: none;" type="text" name="delId" value="<%= car._id %>"></input>
+                        <input type="submit" id="del-button" value="Delete"></input>
+                    </form>
+                </li>
+            <% }); %>
+        </ul>
+
+        <ul>
+            <li><a href="/cars/create">Create a new car</a></li>
+            <li><a href="/cars/view">View and edit the cars</a></li>
+        </ul>
+    </main>
+</body>
+</html>
+
+WHAT DO I DO WHEN I AM DONE???? I HAVE NOTHING TO DO. #ISBORED #YUNOGETONMELVL #SOICANDOSTUFFWITUPPL 
+EAT SOME BREAD
+I HAVE NONE :(
+SADNESS :(
+YOU CAN WRITE ON YOUR OWN COMP, YOU KNOW THAT RIGHT?
+MAKES LIFE EASIER, AND MAKES IT LOOK AS IF YOU'RE WORKING
+
+YAS, VÅR NÄSTA LEKTION ÄR INSTÄLLD. HON ÄR SJUK. SADE ATT EN LÄRARE KSK KAN ÖPPNA FÖR OSS, MEN TROR EJ HEN
+TAR NÄRVARO. <----
+
+I WANT TO BUY BAGUETTE, BUT NETTO NO SELL BAUGETTE CAUSE THEY BAD. I CAN EAT LIKE
+COLD HAMBURGER THOUGH, WHICH IS NICE. 
+
+IT IS COLD BECAUSE LIKE YOU HAVE TO HEAT IT IN A MICROWAVE, AND WE DON'T OWN A MICROWAVE.
+OR WELL, I OWN ONE, AT HOME Y'KNOW, BUT NOT IN SCHOOL :(
+
+NO SHIT SHERLOCK*
+NOT "NO SHIT SMILEY FACE"
+
+I AM NOT WATSON!!! U BE DA WATSON. I BE DA SMART SOCIOPATH.

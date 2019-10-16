@@ -1,0 +1,15 @@
+{
+  "name": "gymnasiearbete-jinado",
+  "version": "1.0.0",
+  "description": "Johannes Emmoths gymnasiearbete",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Johannes Emmoth @ johannes.emmoth@gmail.com",
+  "license": "ISC",
+  "dependencies": {
+    "ejs": "^2.7.1",
+    "express": "^4.17.1"
+  }
+}

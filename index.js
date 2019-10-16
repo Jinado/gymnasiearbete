@@ -5,6 +5,15 @@ const app = express();
 //              MIDDLEWARE
 const bodyParser = require("body-parser");
 const path = require("path");
+const { check, validationResult } = require('express-validator');
+const expressSession = require("express-session");
+
+// Express validator and session middleware
+app.use(expressSession({
+    secret: "HSFJ12321ASKJSAgdgAF#%gdu!!hjahfj!!kaQWABNFJWgdgs%Af56##21jSNBJFKSA76412MLFNIJUF",
+    saveUninitialized: false,
+    resave: false
+}));
 
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }))
@@ -28,20 +37,25 @@ app.set('views', path.join(__dirname, '/public/ejs'));
 //                ROUTES
 // ROOT route
 app.get("/", (req, res) => {
-    if(req.query.login === "success"){
-        res.render("pages/index", {title: "Homepage", loggedIn: true});
-    } else {
-        res.render("pages/index", {title: "Homepage", loggedIn: false});
-    }
+    res.render("pages/index", {title: "Homepage", loggedIn: req.session.loggedIn, errors: req.session.errors});
+    req.session.errors = null;
 });
 
-app.post("/login", (req, res) => {
-    const credentials = req.body;
-    if(credentials.email === "johannes.emmoth@gmail.com" && credentials.password === "password123"){
-        res.redirect("/?login=success");
+app.post("/login", [check("email", "Du måste ange en korrekt E-postadress").isEmail()], (req, res) => {
+    let result = validationResult(req);
+    if(result.errors.length !== 0){
+        req.session.errors = result.errors;
+        req.session.loggedIn = false;
     } else {
-        res.redirect("/")
+        // Check if the credentials match any in the database
+        req.session.loggedIn = false;
+        if(req.body.email === "johannes.emmoth@gmail.com" && req.body.password === "password123"){
+            req.session.loggedIn = true;
+        }
+
+        req.session.errors = null;
     }
+    res.redirect("/");
 });
 
 // 404 - Error

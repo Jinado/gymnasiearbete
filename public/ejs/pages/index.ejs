@@ -26,13 +26,19 @@
             </div>
         <% } else { %>
             <form class="form-inline my-2 my-lg-0" method="POST" action="/login">
-                <input class="form-control mr-sm-2" type="email" placeholder="E-Post…" aria-label="E-Post" name="email" required>
-                <input class="form-control mr-sm-2" type="password" placeholder="Lösenord…" aria-label="Lösenord" name="password" required>
+                <input class="form-control mr-sm-2" type="text" placeholder="E-Post…" aria-label="E-Post" name="email">
+                <input class="form-control mr-sm-2" type="password" placeholder="Lösenord…" aria-label="Lösenord" name="password">
                 <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Logga in</button>
             </form>
         <% } %>
     </div>
 </nav>
+
+<% if(errors) { %>
+    <% errors.forEach(error => { %>
+        <li><%= error.msg %> </li>
+    <% }); %>
+<% } %> 
 
 <h1>Welcome!</h1>
 <p>You're currently on the home page!</p>

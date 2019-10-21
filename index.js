@@ -70,7 +70,7 @@ app.get("*", (req, res) => {
 app.listen(5000, () => console.log("Server listening on port 5000!"));
 
 /*
-    Use "lt -p 5000 -s ga-jinado" to run the localtunnel,
+    Use "lt -p 5000 -s ga-johannes" to run the localtunnel,
     then write the command "node index.js" in a separate terminal to
     start the server.
 */

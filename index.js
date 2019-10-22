@@ -7,6 +7,7 @@ const bodyParser = require("body-parser");
 const path = require("path");
 const { check, validationResult } = require('express-validator');
 const expressSession = require("express-session");
+const database = require("./connect");
 
 // Express validator and session middleware
 app.use(expressSession({
@@ -41,6 +42,43 @@ app.get("/", (req, res) => {
     req.session.errors = null;
 });
 
+app.post("/login", [check("email", "Du måste ange en korrekt E-postadress").isEmail()], async (req, res) => {
+    let result = validationResult(req);
+    if(result.errors.length !== 0){
+        req.session.errors = result.errors;
+        req.session.loggedIn = false;
+    } else {
+        // Check if the credentials match any in the database
+        req.session.loggedIn = false;
+        let sql = `SELECT email, password FROM users WHERE email LIKE \'${req.body.email}\' AND password LIKE \'${req.body.password}\';`
+
+        let _loggedIn = false;
+        let _email = null;
+
+        /*
+        database.conn.query(sql, (err, result) =>{
+            if(err) { 
+                throw err;
+            } else { // That password and email combination was found and is therefore valid
+                _loggedIn = true;
+                _email = result[0].email;
+                console.log("Hello from the inside!");
+            }
+        });
+        */
+
+        const queryResult = await database.conn.query(sql);
+
+
+        // Fix your problem with this answer https://stackoverflow.com/a/47262445
+
+        console.log(queryResult.results[0].email);
+        req.session.errors = null;
+    }
+    res.redirect("/");
+});
+
+/*
 app.post("/login", [check("email", "Du måste ange en korrekt E-postadress").isEmail()], (req, res) => {
     let result = validationResult(req);
     if(result.errors.length !== 0){
@@ -57,6 +95,7 @@ app.post("/login", [check("email", "Du måste ange en korrekt E-postadress").isE
     }
     res.redirect("/");
 });
+*/
 
 // 404 - Error
 app.get("*", (req, res) => {

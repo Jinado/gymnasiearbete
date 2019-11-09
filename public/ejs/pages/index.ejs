@@ -1,42 +1,5 @@
 <%- include ../partials/header.ejs %>
 
-<nav class="navbar navbar-expand-lg navbar-light bg-light">
-    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarTogglerDemo01" aria-controls="navbarTogglerDemo01" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="navbarTogglerDemo01">
-        <a class="navbar-brand" href="#">Gymnasiearbete</a>
-        <ul class="navbar-nav mr-auto mt-2 mt-lg-0">
-            <li class="nav-item">
-                <a class="nav-link" href="#">Om oss</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#">Om produkten</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#">Priser</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#">Kontakta oss</a>
-            </li>
-        </ul>
-        <% if(loggedIn) { %>
-            <form class="form-inline my-2 my-lg-0 mx-md-3" method="GET" action="/mina-sidor">
-                <button class="btn btn-outline-info my-2 my-sm-0">Mina sidor</button>
-            </form>
-            <form class="form-inline my-2 my-lg-0" method="POST" action="/logout">
-                <button class="btn btn-outline-danger my-2 my-sm-0" type="submit">Logga ut</button>
-            </form>
-        <% } else { %>
-            <form class="form-inline my-2 my-lg-0" method="POST" action="/login">
-                <input class="form-control mr-sm-2" type="text" placeholder="E-Post…" aria-label="E-Post" name="email">
-                <input class="form-control mr-sm-2" type="password" placeholder="Lösenord…" aria-label="Lösenord" name="password">
-                <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Logga in</button>
-            </form>
-        <% } %>
-    </div>
-</nav>
-
 <% if(errors) { %>
     <% errors.forEach(error => { %>
         <li><%= error.msg %> </li>

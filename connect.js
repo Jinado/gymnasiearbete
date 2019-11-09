@@ -6,11 +6,12 @@ connObj = {
 };
 
 module.exports = {
+    // Hämta data från databasen med en custom SQL-statement.
     fetchData: async sql =>{
         const mysql = require("mysql2/promise");
         const conn = await mysql.createConnection(connObj);
-        const [rows, fields] = await conn.execute(sql, [2, 2]);
+        const result = await conn.execute(sql, [2, 2]);
 
-        return [rows, fields];
+        return result;
     }
 }

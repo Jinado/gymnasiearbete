@@ -52,53 +52,29 @@ app.post("/login", [check("email", "Du måste ange en korrekt E-postadress").isE
         req.session.loggedIn = false;
         let sql = `SELECT email, password FROM users WHERE email LIKE \'${req.body.email}\' AND password LIKE \'${req.body.password}\';`
 
-        let _loggedIn = false;
-        let _email = null;
+        const [rows, fields] = await database.fetchData(sql);
 
-        /*
-        database.conn.query(sql, (err, result) =>{
-            if(err) { 
-                throw err;
-            } else { // That password and email combination was found and is therefore valid
-                _loggedIn = true;
-                _email = result[0].email;
-                console.log("Hello from the inside!");
-            }
-        });
-        */
-
-        const queryResult = await database.conn.query(sql);
-
-
-        // Fix your problem with this answer https://stackoverflow.com/a/47262445
-
-        console.log(queryResult.results[0].email);
-        req.session.errors = null;
-    }
-    res.redirect("/");
-});
-
-/*
-app.post("/login", [check("email", "Du måste ange en korrekt E-postadress").isEmail()], (req, res) => {
-    let result = validationResult(req);
-    if(result.errors.length !== 0){
-        req.session.errors = result.errors;
-        req.session.loggedIn = false;
-    } else {
-        // Check if the credentials match any in the database
-        req.session.loggedIn = false;
-        if(req.body.email === "johannes.emmoth@gmail.com" && req.body.password === "password123"){
+        if(rows.length != 0){ // If the length of the row is not 0, it found a valid match
             req.session.loggedIn = true;
+            let email = rows[0].email;
         }
-
         req.session.errors = null;
     }
     res.redirect("/");
 });
-*/
+
+app.post("/logout", (req, res) => {
+    req.session.loggedIn = false;
+    res.redirect("/");
+});
 
 // 404 - Error
 app.get("*", (req, res) => {
+    const url = req.protocol + '://' + req.get('host') + req.originalUrl;
+    res.render("errors/error404", {url: url, title: "404 - Page not found"});
+});
+
+app.post("*", (req, res) => {
     const url = req.protocol + '://' + req.get('host') + req.originalUrl;
     res.render("errors/error404", {url: url, title: "404 - Page not found"});
 });

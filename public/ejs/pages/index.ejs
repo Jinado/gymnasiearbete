@@ -21,14 +21,17 @@
             </li>
         </ul>
         <% if(loggedIn) { %>
-            <div class="my-2 my-lg-0">
-                <a class="nav-link" href="/mina-sidor">Mina sidor</a>
-            </div>
+            <form class="form-inline my-2 my-lg-0 mx-md-3" method="GET" action="/mina-sidor">
+                <button class="btn btn-outline-info my-2 my-sm-0">Mina sidor</button>
+            </form>
+            <form class="form-inline my-2 my-lg-0" method="POST" action="/logout">
+                <button class="btn btn-outline-danger my-2 my-sm-0" type="submit">Logga ut</button>
+            </form>
         <% } else { %>
             <form class="form-inline my-2 my-lg-0" method="POST" action="/login">
                 <input class="form-control mr-sm-2" type="text" placeholder="E-Post…" aria-label="E-Post" name="email">
                 <input class="form-control mr-sm-2" type="password" placeholder="Lösenord…" aria-label="Lösenord" name="password">
-                <button class="btn btn-outline-info my-2 my-sm-0" type="submit">Logga in</button>
+                <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Logga in</button>
             </form>
         <% } %>
     </div>

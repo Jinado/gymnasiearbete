@@ -74,13 +74,13 @@ app.post("/login", [check("email", "Du m책ste ange en korrekt E-postadress").isE
     } else {
         // Check if the credentials match any in the database
         req.session.loggedIn = false;
-        let sql = `SELECT email, password FROM users WHERE email LIKE \'${req.body.email}\' AND password LIKE \'${req.body.password}\';`
 
-        const [rows, fields] = await database.fetchData(sql);
+        sqlVariablesArray = [req.body.email, req.body.password]; // Skickar med v채rdet som en array d책 metoden kr채ver detta
+        const [rows, fields] = await database.fetchData("SELECT email, password FROM users WHERE email LIKE ? AND password LIKE ?;", sqlVariablesArray);
 
         if(rows.length != 0){ // If the length of the row is not 0, it found a valid match
             req.session.loggedIn = true;
-            let email = rows[0].email;
+            req.session.email = rows[0].email;
         }
         req.session.errors = null;
     }
@@ -89,6 +89,7 @@ app.post("/login", [check("email", "Du m책ste ange en korrekt E-postadress").isE
 
 app.post("/logout", (req, res) => {
     req.session.loggedIn = false;
+    req.session.email = null;
     res.redirect("/");
 });
 
@@ -109,7 +110,8 @@ app.post("/checked-secret", check("companySecret", "Du m책ste ange en korrekt f�
             formattedSecret += part;
         });
 
-        const [rows, fields] = await database.fetchData(`SELECT company FROM companies WHERE secret LIKE \'${formattedSecret}\'`);
+        sqlVariablesArray = [formattedSecret]; // Skickar med v채rdet som en array d책 metoden kr채ver detta
+        const [rows, fields] = await database.fetchData("SELECT company FROM companies WHERE secret LIKE ?;", sqlVariablesArray);
         if(rows.length !== 0){
             res.render("pages/createAccount", {title: "Skapa ett konto", secret: secret, readonly: "readonly", compName: rows[0].company, disabled: ""});
         } else {
@@ -140,6 +142,10 @@ app.post("/create-account", [
     } else { // Everything is correct
         console.log("You did good");
     }
+});
+
+app.get("/mina-sidor", async (req, res) => {
+    res.send(req.session.email);
 });
 
 app.get("/test", (req, res) => {

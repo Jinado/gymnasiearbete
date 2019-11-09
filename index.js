@@ -53,6 +53,13 @@ function generateSecret(){
 
     return secret;
 }
+
+function resetSignUpSessions(req){
+    req.session.secret = "";
+    req.session.readonly = "";
+    req.session.compName = "";
+    req.session.disabled = "disabled";
+}
 //             END FUNCTIONS
 // =======================================
 
@@ -61,12 +68,15 @@ function generateSecret(){
 // ROOT route
 
 app.get("/", (req, res) => {
+    resetSignUpSessions(req);
+
     res.render("pages/index", {title: "Homepage", loggedIn: req.session.loggedIn, errors: req.session.errors});
-    res.end();
     req.session.errors = null;
 });
 
 app.post("/login", [check("email", "Du måste ange en korrekt E-postadress").isEmail()], async (req, res) => {
+    resetSignUpSessions(req);
+
     let result = validationResult(req);
     if(result.errors.length !== 0){
         req.session.errors = result.errors;
@@ -76,7 +86,7 @@ app.post("/login", [check("email", "Du måste ange en korrekt E-postadress").isE
         req.session.loggedIn = false;
 
         sqlVariablesArray = [req.body.email, req.body.password]; // Skickar med värdet som en array då metoden kräver detta
-        const [rows, fields] = await database.fetchData("SELECT email, password FROM users WHERE email LIKE ? AND password LIKE ?;", sqlVariablesArray);
+        const [rows, fields] = await database.runStatement("SELECT email, password FROM users WHERE email LIKE ? AND password LIKE ?;", sqlVariablesArray);
 
         if(rows.length != 0){ // If the length of the row is not 0, it found a valid match
             req.session.loggedIn = true;
@@ -88,13 +98,15 @@ app.post("/login", [check("email", "Du måste ange en korrekt E-postadress").isE
 });
 
 app.post("/logout", (req, res) => {
+    resetSignUpSessions(req);
+
     req.session.loggedIn = false;
     req.session.email = null;
     res.redirect("/");
 });
 
 app.get("/create-account", async (req, res) => {
-    res.render("pages/createAccount", {title: "Skapa ett konto", secret: "", readonly: "", compName: "", disabled: "disabled"});
+    res.render("pages/createAccount", {title: "Skapa ett konto", secret: req.session.secret, readonly: req.session.readonly, compName: req.session.compName, disabled: req.session.disabled});
 });
 
 app.post("/checked-secret", check("companySecret", "Du måste ange en korrekt företagskod").matches("^(?=.*[A-Za-z]*)(?=.*[0-9]*)(?=.{16,19})"), async (req, res) => {
@@ -111,9 +123,14 @@ app.post("/checked-secret", check("companySecret", "Du måste ange en korrekt f�
         });
 
         sqlVariablesArray = [formattedSecret]; // Skickar med värdet som en array då metoden kräver detta
-        const [rows, fields] = await database.fetchData("SELECT company FROM companies WHERE secret LIKE ?;", sqlVariablesArray);
+        const [rows, fields] = await database.runStatement("SELECT company FROM companies WHERE secret LIKE ?;", sqlVariablesArray);
         if(rows.length !== 0){
-            res.render("pages/createAccount", {title: "Skapa ett konto", secret: secret, readonly: "readonly", compName: rows[0].company, disabled: ""});
+            req.session.secret = secret;
+            req.session.readonly = "readonly";
+            req.session.compName = rows[0].company;
+            req.session.disabled = "";
+
+            res.redirect("/create-account");
         } else {
             res.redirect("/create-account");
         }
@@ -121,6 +138,7 @@ app.post("/checked-secret", check("companySecret", "Du måste ange en korrekt f�
 });
 
 app.get("/checked-secret", (req, res) => {
+    resetSignUpSessions(req);
     res.redirect("/create-account");
 });
 
@@ -133,6 +151,7 @@ app.post("/create-account", [
     check("seqQuestion", "Din säkerhetsfråga måste vara minst 10 karaktärer lång och max 150").isLength({min: 10, max: 150}),
     check("answer", "Ditt säkerhetssvar måste vara minst 2 karaktärer långt och max 150").isLength({min: 2, max: 150})
 ], async (req, res) => {
+
     let result = validationResult(req);
     if(result.errors.length !== 0){
         req.session.errors = result.errors;
@@ -140,25 +159,32 @@ app.post("/create-account", [
     } else if (req.body.password !== req.body.repeatPassword) {
         req.session.error = "Lösenorden stämmer ej överrens"
     } else { // Everything is correct
-        console.log("You did good");
+        sqlVariablesArray = [req.body.email, req.body.password, req.body.seqQuestion, req.body.answer, req.body.firstname, req.body.lastname, req.body.company];
+        const [rows, fields] = await database.runStatement("INSERT INTO users (email, password, security_question, answer, first_name, last_name, company) VALUES (?, ?, ?, ?, ?, ?, ?)", sqlVariablesArray);
+        res.redirect("/");
     }
+
 });
 
 app.get("/mina-sidor", async (req, res) => {
+    resetSignUpSessions(req);
     res.send(req.session.email);
 });
 
 app.get("/test", (req, res) => {
+    resetSignUpSessions(req);
     res.send(generateSecret());
 });
 
 // 404 - Error
 app.get("*", (req, res) => {
+    resetSignUpSessions(req);
     const url = req.protocol + '://' + req.get('host') + req.originalUrl;
     res.render("errors/error404", {url: url, title: "404 - Page not found", loggedIn: req.session.loggedIn, errors: req.session.errors});
 });
 
 app.post("*", (req, res) => {
+    resetSignUpSessions(req);
     const url = req.protocol + '://' + req.get('host') + req.originalUrl;
     res.render("errors/error404", {url: url, title: "404 - Page not found", loggedIn: req.session.loggedIn, errors: req.session.errors});
 });

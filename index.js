@@ -215,15 +215,25 @@ app.post("/download", async (req, res) => {
         let date = new Date();
         date = date.toISOString().slice(0,19);
         date = date.replace("T", "_").replace(/[^0-9-_]/g, "-");
-        let writeStream = fs.createWriteStream(path.join(__dirname, "/private/data/", `${rowsUserData[0].email}_${date}.txt`), { encoding: 'utf-8' });
+        let writeStream = fs.createWriteStream(path.join(__dirname, "/private/data/", `${rowsUserData[0].email}_${date}.txt`), { encoding: 'utf8' });
         let dataArray = rowsUserData.concat(rowsRaspData);
 
         // Skriv datan till filen
-        writeStream.write(JSON.stringify(dataArray));
+        writeStream.write(JSON.stringify(dataArray), err => {if(err) {console.log(err);}});
         writeStream.end();
 
-        // Ladda ner filen
-        res.download(path.join(__dirname, "/private/data/", `${rowsUserData[0].email}_${date}.txt`), `${rowsUserData[0].email}_${date}.txt`, err => {if(err){console.log(err)}});
+        // Ladda ner filen EFTER att filen är skriven
+        writeStream.on("finish", () => {
+            res.download(path.join(__dirname, "/private/data/", `${rowsUserData[0].email}_${date}.txt`), `${rowsUserData[0].email}_${date}.txt`, err => {
+                if(err) {
+                    console.log(err)
+                } else {
+                    // Delete the file if there were no errors downloading it
+                    fs.unlink(path.join(__dirname, "/private/data/", `${rowsUserData[0].email}_${date}.txt`), err => {if (err) console.log(err);});
+                }
+            });
+        });
+
     } else {
         res.redirect("/");
     }

@@ -151,17 +151,51 @@ app.post("/create-account", [
     check("seqQuestion", "Din säkerhetsfråga måste vara minst 10 karaktärer lång och max 150").isLength({min: 10, max: 150}),
     check("answer", "Ditt säkerhetssvar måste vara minst 2 karaktärer långt och max 150").isLength({min: 2, max: 150})
 ], async (req, res) => {
-
     let result = validationResult(req);
     if(result.errors.length !== 0){
         req.session.errors = result.errors;
-        console.log("Oops");
+        let counter = 0;
+        for(let i = 0; i < req.session.errors.length; i++){
+            if(req.session.errors[i].param !== "email"){
+                counter++;
+            }
+        }
+
+        if(counter === req.session.errors.length){ // If it returns true, there's nothing wrong with the email adress according to express-validator
+            // Check to see if that email is already registered
+            let [rows, fields] = await database.runStatement("SELECT email FROM users WHERE email LIKE ?", [req.body.email]);
+            if(rows.length > 0){
+                if(req.session.errors === undefined){
+                    req.session.errors = [{value: req.body.email, msg: "Denna E-postadress är upptagen", param: "email", location: "body"}];
+                } else {
+                    req.session.errors.push({value: req.body.email, msg: "Denna E-postadress är upptagen", param: "email", location: "body"});
+                }
+            }
+        }
+        console.log(req.session.errors);
     } else if (req.body.password !== req.body.repeatPassword) {
-        req.session.error = "Lösenorden stämmer ej överrens"
+        if(req.session.errors === undefined){
+            req.session.errors = [{value: "****", msg: "Lösenorden stämmer ej överrens", param: "password", location: "body"}];
+        } else {
+            req.session.errors.push({value: "****", msg: "Lösenorden stämmer ej överrens", param: "password", location: "body"});
+        }
     } else { // Everything is correct
         sqlVariablesArray = [req.body.email, req.body.password, req.body.seqQuestion, req.body.answer, req.body.firstname, req.body.lastname, req.body.company];
-        const [rows, fields] = await database.runStatement("INSERT INTO users (email, password, security_question, answer, first_name, last_name, company) VALUES (?, ?, ?, ?, ?, ?, ?)", sqlVariablesArray);
-        res.redirect("/");
+
+        // Check to see if that email is already registered
+        let [rows, fields] = await database.runStatement("SELECT email FROM users WHERE email LIKE ?", [req.body.email]);
+        if(rows.length > 0){
+            if(req.session.errors === undefined){
+                req.session.errors = [{value: req.body.email, msg: "Denna E-postadress är upptagen", param: "email", location: "body"}];
+            } else {
+                req.session.errors.push({value: req.body.email, msg: "Denna E-postadress är upptagen", param: "email", location: "body"});
+            }
+            console.log(req.session.errors);
+            res.redirect("/create-account");
+        } else {
+            [rows, fields] = await database.runStatement("INSERT INTO users (email, password, security_question, answer, first_name, last_name, company) VALUES (?, ?, ?, ?, ?, ?, ?)", sqlVariablesArray);
+            res.redirect("/");
+        }
     }
 
 });

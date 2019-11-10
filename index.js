@@ -8,6 +8,7 @@ const path = require("path");
 const { check, validationResult } = require('express-validator');
 const expressSession = require("express-session");
 const database = require("./connect");
+const fs = require("fs");
 
 // Express validator and session middleware
 app.use(expressSession({
@@ -200,27 +201,50 @@ app.post("/create-account", [
 
 });
 
-app.get("/mina-sidor", async (req, res) => {
+app.get("/my-pages", async (req, res) => {
     resetSignUpSessions(req);
-    res.send(req.session.email);
+    const [rows, fields] = await database.runStatement("SELECT first_name, last_name FROM users WHERE email LIKE ?", [req.session.email]);
+    res.render("pages/myPages", {title: "Mina sidor", loggedIn: req.session.loggedIn, firstname: rows[0].first_name, lastname: rows[0].last_name});
 });
 
-app.get("/test", (req, res) => {
+app.post("/download", async (req, res) => {
+    if(req.session.loggedIn){
+        let [rowsUserData, fieldsUserData] = await database.runStatement("SELECT * FROM users WHERE email LIKE ?", [req.session.email]);
+        let [rowsRaspData, fieldsRaspData] = await database.runStatement("SELECT * FROM raspberries WHERE email LIKE ?", [rowsUserData[0].email]);;
+
+        let date = new Date();
+        date = date.toISOString().slice(0,19);
+        date = date.replace("T", "_").replace(/[^0-9-_]/g, "-");
+        let writeStream = fs.createWriteStream(path.join(__dirname, "/private/data/", `${rowsUserData[0].email}_${date}.txt`), { encoding: 'utf-8' });
+        let dataArray = rowsUserData.concat(rowsRaspData);
+
+        // Skriv datan till filen
+        writeStream.write(JSON.stringify(dataArray));
+        writeStream.end();
+
+        // Ladda ner filen
+        res.download(path.join(__dirname, "/private/data/", `${rowsUserData[0].email}_${date}.txt`), `${rowsUserData[0].email}_${date}.txt`, err => {if(err){console.log(err)}});
+    } else {
+        res.redirect("/");
+    }
+});
+
+app.get("/test", async (req, res) => {
     resetSignUpSessions(req);
-    res.send(generateSecret());
+    res.send("Hi");
 });
 
 // 404 - Error
 app.get("*", (req, res) => {
     resetSignUpSessions(req);
     const url = req.protocol + '://' + req.get('host') + req.originalUrl;
-    res.render("errors/error404", {url: url, title: "404 - Page not found", loggedIn: req.session.loggedIn, errors: req.session.errors});
+    res.render("errors/error404", {url: url, title: "404 - Page not found", loggedIn: req.session.loggedIn});
 });
 
 app.post("*", (req, res) => {
     resetSignUpSessions(req);
     const url = req.protocol + '://' + req.get('host') + req.originalUrl;
-    res.render("errors/error404", {url: url, title: "404 - Page not found", loggedIn: req.session.loggedIn, errors: req.session.errors});
+    res.render("errors/error404", {url: url, title: "404 - Page not found", loggedIn: req.session.loggedIn});
 });
 //
 //              END ROUTES

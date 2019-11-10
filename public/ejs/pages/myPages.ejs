@@ -33,21 +33,45 @@
                 </li>
             </ul>
             <% if(loggedIn) { %>
-                <form class="form-inline my-2 my-lg-0 mx-md-3" method="GET" action="/my-pages">
-                    <button class="btn btn-outline-info my-2 my-sm-0">Mina sidor</button>
-                </form>
                 <form class="form-inline my-2 my-lg-0" method="POST" action="/logout">
                     <button class="btn btn-outline-danger my-2 my-sm-0" type="submit">Logga ut</button>
-                </form>
-            <% } else { %>
-                <form class="form-inline my-2 my-lg-0 mx-md-3" method="POST" action="/login">
-                    <input class="form-control mr-sm-2" type="text" placeholder="E-Post…" aria-label="E-Post" name="email">
-                    <input class="form-control mr-sm-2" type="password" placeholder="Lösenord…" aria-label="Lösenord" name="password">
-                    <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Logga in</button>
-                </form>
-                <form class="form-inline my-2 my-lg-0" method="GET" action="/create-account">
-                    <button class="btn btn-outline-info my-2 my-sm-0" type="submit">Skapa konto</button>
                 </form>
             <% } %>
         </div>
     </nav>
+    
+    <div class="container">
+        <div class="row">
+            <div class="col my-md-5">
+                <h1 class="text-center">Välkommen, <%= firstname %> <%= lastname %>!</h1>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-2"></div>
+            <div class="col-md-8">
+                <p class="text-center">Vid ett senare tillfälle kommer du kunna se alla Raspberry Pi:s du kontrollerar
+                    och härifrån kunna ändra texten som visas på dem. Just nu får du dock nöja dig
+                    med detta!
+                </p>
+            </div>
+            <div class="col-md-2"></div>
+        </div>
+        <div class="row mt-5">
+            <div class="col-md-2"></div>
+            <div class="col-md-8">
+                <h3 class="text-center">Ladda ner din data!</h3>
+            </div>
+            <div class="col-md-2"></div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-md-4"></div>
+            <div class="col-md-4">
+                <form class="form-inline my-2 my-lg-0" method="POST" action="/download">
+                    <button type="submit" class="btn btn-primary my-2 my-sm-0 mx-auto">Ladda ner</button>
+                </form> 
+            </div>
+            <div class="col-md-4"></div>
+        </div>
+    </div>
+
+<%- include ../partials/footer.ejs %>

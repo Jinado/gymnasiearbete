@@ -71,7 +71,7 @@ function resetSignUpSessions(req){
 app.get("/", (req, res) => {
     resetSignUpSessions(req);
 
-    res.render("pages/index", {title: "Homepage", loggedIn: req.session.loggedIn, errors: req.session.errors});
+    res.render("pages/index", {title: "Hem", loggedIn: req.session.loggedIn, errors: req.session.errors});
     req.session.errors = null;
 });
 

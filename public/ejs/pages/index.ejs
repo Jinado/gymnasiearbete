@@ -6,7 +6,23 @@
     <% }); %>
 <% } %> 
 
-<h1>Welcome!</h1>
-<p>You're currently on the home page!</p>
+<div class="container">
+    <div class="row text-center mt-5">
+        <div class="col">
+            <h1>Välkommen!</h1>
+            <p>Just nu är du på hemsidan!</p>
+        </div>
+    </div>
+    <div class="row text-center">
+        <div class="col-md-4"></div>
+        <div class="col-md-4">
+            <p><i>P.S. Ditt lösenord sparas fortfarande i klartext i databasen. Har inte ännu
+                lagt in en hash-funktion.
+            </i></p>
+        </div>
+        <div class="col-md-4"></div>
+    </div>
+</div>
+
 
 <%- include ../partials/footer.ejs %>

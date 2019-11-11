@@ -241,7 +241,7 @@ app.post("/download", async (req, res) => {
 
 app.get("/test", async (req, res) => {
     resetSignUpSessions(req);
-    res.send("Hi");
+    res.send(generateSecret());
 });
 
 // 404 - Error

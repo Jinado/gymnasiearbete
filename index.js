@@ -185,11 +185,11 @@ app.post("/create-account", [
             req.session.errors.push({value: "****", msg: "Lösenorden stämmer ej överrens", param: "password", location: "body"});
         }
     } else { // Everything is correct
-        // Hash the password
-        console.log("Hashing...");
+        // Hash the password and the secret answer
         const hashedPass = await hash.hashPass(req.body.password);
+        const hashedAnswer = await hash.hashAnswer(req.body.answer);
 
-        sqlVariablesArray = [req.body.email, hashedPass, req.body.seqQuestion, req.body.answer, req.body.firstname, req.body.lastname, req.body.company];
+        sqlVariablesArray = [req.body.email, hashedPass, req.body.seqQuestion, hashedAnswer, req.body.firstname, req.body.lastname, req.body.company];
 
         // Check to see if that email is already registered
         let [rows, fields] = await database.runStatement("SELECT email FROM users WHERE email LIKE ?", [req.body.email]);
@@ -217,9 +217,21 @@ app.get("/my-pages", async (req, res) => {
 
 app.post("/download", async (req, res) => {
     if(req.session.loggedIn){
-        let [rowsUserData, fieldsUserData] = await database.runStatement("SELECT * FROM users WHERE email LIKE ?", [req.session.email]);
-        let [rowsRaspData, fieldsRaspData] = await database.runStatement("SELECT * FROM raspberries WHERE email LIKE ?", [rowsUserData[0].email]);;
+        let [rowsFetchedUserData, fieldsUserData] = await database.runStatement("SELECT * FROM users WHERE email LIKE ?", [req.session.email]);
+        let [rowsFetchedRaspData, fieldsRaspData] = await database.runStatement("SELECT * FROM raspberries WHERE email LIKE ?", [rowsFetchedUserData[0].email]);;
 
+        // Remove all unnecessary data like passwords and user_id:s
+        let rowsUserData = [];
+        rowsFetchedUserData.forEach(el => {
+            rowsUserData.push({email: el.email, security_question: el.security_question, first_name: el.first_name, last_name: el.last_name, company: el.company});
+        });
+
+        // Remove all unnecessary data like rasp_id:s
+        let rowsRaspData = [];
+        rowsFetchedRaspData.forEach(el => {
+            rowsRaspData.push({email: el.email, string: el.string});
+        });
+        
         let date = new Date();
         date = date.toISOString().slice(0,19);
         date = date.replace("T", "_").replace(/[^0-9-_]/g, "-");
@@ -241,7 +253,6 @@ app.post("/download", async (req, res) => {
                 }
             });
         });
-
     } else {
         res.redirect("/");
     }

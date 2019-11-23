@@ -9,6 +9,7 @@ const { check, validationResult } = require('express-validator');
 const expressSession = require("express-session");
 const database = require("./connect");
 const fs = require("fs");
+const hash = require("./hash");
 
 // Express validator and session middleware
 app.use(expressSession({
@@ -85,13 +86,16 @@ app.post("/login", [check("email", "Du måste ange en korrekt E-postadress").isE
     } else {
         // Check if the credentials match any in the database
         req.session.loggedIn = false;
-
-        sqlVariablesArray = [req.body.email, req.body.password]; // Skickar med värdet som en array då metoden kräver detta
-        const [rows, fields] = await database.runStatement("SELECT email, password FROM users WHERE email LIKE ? AND password LIKE ?;", sqlVariablesArray);
+        
+        sqlVariablesArray = [req.body.email]; // Skickar med värdet som en array då metoden kräver detta
+        const [rows, fields] = await database.runStatement("SELECT email, password FROM users WHERE email LIKE ?", [req.body.email]);
 
         if(rows.length != 0){ // If the length of the row is not 0, it found a valid match
-            req.session.loggedIn = true;
-            req.session.email = rows[0].email;
+            // Compare the passwords using BCRYPTJS
+            if(await hash.compare(req.body.password, rows[0].password)){
+                req.session.loggedIn = true;
+                req.session.email = rows[0].email;
+            }
         }
         req.session.errors = null;
     }
@@ -181,7 +185,11 @@ app.post("/create-account", [
             req.session.errors.push({value: "****", msg: "Lösenorden stämmer ej överrens", param: "password", location: "body"});
         }
     } else { // Everything is correct
-        sqlVariablesArray = [req.body.email, req.body.password, req.body.seqQuestion, req.body.answer, req.body.firstname, req.body.lastname, req.body.company];
+        // Hash the password
+        console.log("Hashing...");
+        const hashedPass = await hash.hashPass(req.body.password);
+
+        sqlVariablesArray = [req.body.email, hashedPass, req.body.seqQuestion, req.body.answer, req.body.firstname, req.body.lastname, req.body.company];
 
         // Check to see if that email is already registered
         let [rows, fields] = await database.runStatement("SELECT email FROM users WHERE email LIKE ?", [req.body.email]);

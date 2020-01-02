@@ -6,19 +6,16 @@ const app = express();
 const bodyParser = require("body-parser");
 const path = require("path");
 const { check, validationResult } = require('express-validator');
-const expressSession = require("express-session");
 const fs = require("fs");
+const jwt = require("jsonwebtoken");
 const database = require("./private/modules/connect");
 const hash = require("./private/modules/hash");
 const auth = require("./private/modules/auth");
+const jwtSecret = require("./private/modules/secret");
+const cookieParser = require('cookie-parser');
 
-
-// Express validator and session middleware
-app.use(expressSession({
-    secret: "HSFJ12321ASKJSAgdgAF#%gdu!!hjahfj!!kaQWABNFJWgdgs%Af56##21jSNBJFKSA76412MLFNIJUF",
-    saveUninitialized: false,
-    resave: false
-}));
+// Cookie parsewr
+app.use(cookieParser());
 
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }))
@@ -57,13 +54,6 @@ function generateSecret(){
 
     return secret;
 }
-
-function resetSignUpSessions(req){
-    req.session.secret = "";
-    req.session.readonly = "";
-    req.session.compName = "";
-    req.session.disabled = "disabled";
-}
 //             END FUNCTIONS
 // =======================================
 
@@ -72,22 +62,31 @@ function resetSignUpSessions(req){
 // ROOT route
 
 app.get("/", (req, res) => {
-    resetSignUpSessions(req);
+    res.render("pages/index", {title: "Hem", loggedIn: false, errors: []});
+});
 
-    res.render("pages/index", {title: "Hem", loggedIn: req.session.loggedIn, errors: req.session.errors});
-    req.session.errors = null;
+app.get("/test", (req, res) => {
+    if(req.cookies.loggedInToken){
+        jwt.verify(req.cookies.loggedInToken, jwtSecret, (err, result) => {
+            if(!err){
+                res.send(result.loggedIn);
+            } else {
+                res.send("Invalid token!");
+            }
+        });
+    }
 });
 
 app.post("/login", [check("email", "Du måste ange en korrekt E-postadress").isEmail()], async (req, res) => {
-    resetSignUpSessions(req);
-
     let result = validationResult(req);
     if(result.errors.length !== 0){
-        req.session.errors = result.errors;
-        req.session.loggedIn = false;
+        res.cookie('errorsAtLogin', result.errors, { httpOnly: true, sameSite: "Strict" })
+
+        const loggedInToken = jwt.sign({loggedIn: false}, jwtSecret);
+        res.cookie('loggedInToken', loggedInToken, { httpOnly: true, sameSite: "Strict" });
     } else {
         // Check if the credentials match any in the database
-        req.session.loggedIn = false;
+        //req.session.loggedIn = false;
         
         sqlVariablesArray = [req.body.email]; // Skickar med värdet som en array då metoden kräver detta
         const [rows, fields] = await database.runStatement("SELECT email, password FROM users WHERE email LIKE ?", [req.body.email]);
@@ -95,25 +94,23 @@ app.post("/login", [check("email", "Du måste ange en korrekt E-postadress").isE
         if(rows.length != 0){ // If the length of the row is not 0, it found a valid match
             // Compare the passwords using BCRYPTJS
             if(await hash.compare(req.body.password, rows[0].password)){
-                req.session.loggedIn = true;
-                req.session.email = rows[0].email;
+                //req.session.loggedIn = true;
+                //req.session.email = rows[0].email;
             }
         }
-        req.session.errors = null;
+        //req.session.errors = null;
     }
     res.redirect("/");
 });
 
 app.post("/logout", (req, res) => {
-    resetSignUpSessions(req);
-
     req.session.loggedIn = false;
     req.session.email = null;
     res.redirect("/");
 });
 
 app.get("/create-account", async (req, res) => {
-    res.render("pages/createAccount", {title: "Skapa ett konto", secret: req.session.secret, readonly: req.session.readonly, compName: req.session.compName, disabled: req.session.disabled});
+    res.render("pages/createAccount", {title: "Skapa ett konto", secret: "52", readonly: "readonly", compName: "test", disabled: ""});
 });
 
 app.post("/checked-secret", check("companySecret", "Du måste ange en korrekt företagskod").matches("^(?=.*[A-Za-z]*)(?=.*[0-9]*)(?=.{16,19})"), async (req, res) => {
@@ -145,7 +142,6 @@ app.post("/checked-secret", check("companySecret", "Du måste ange en korrekt f�
 });
 
 app.get("/checked-secret", (req, res) => {
-    resetSignUpSessions(req);
     res.redirect("/create-account");
 });
 
@@ -160,7 +156,9 @@ app.post("/create-account", [
 ], async (req, res) => {
     let result = validationResult(req);
     if(result.errors.length !== 0){
-        req.session.errors = result.errors;
+        res.cookie('errors', result.errors, { httpOnly: true, sameSite: "Strict"});
+        res.redirect("/");
+        //req.session.errors = result.errors;
         let counter = 0;
         for(let i = 0; i < req.session.errors.length; i++){
             if(req.session.errors[i].param !== "email"){
@@ -212,7 +210,6 @@ app.post("/create-account", [
 });
 
 app.get("/my-pages", async (req, res) => {
-    resetSignUpSessions(req);
     const [rows, fields] = await database.runStatement("SELECT first_name, last_name FROM users WHERE email LIKE ?", [req.session.email]);
     res.render("pages/myPages", {title: "Mina sidor", loggedIn: req.session.loggedIn, firstname: rows[0].first_name, lastname: rows[0].last_name});
 });
@@ -261,21 +258,18 @@ app.post("/download", async (req, res) => {
 });
 
 app.get("/test", async (req, res) => {
-    resetSignUpSessions(req);
     res.send(generateSecret());
 });
 
 // 404 - Error
 app.get("*", (req, res) => {
-    resetSignUpSessions(req);
     const url = req.protocol + '://' + req.get('host') + req.originalUrl;
-    res.render("errors/error404", {url: url, title: "404 - Page not found", loggedIn: req.session.loggedIn});
+    res.render("errors/error404", {url: url, title: "404 - Page not found", loggedIn: false});
 });
 
 app.post("*", (req, res) => {
-    resetSignUpSessions(req);
     const url = req.protocol + '://' + req.get('host') + req.originalUrl;
-    res.render("errors/error404", {url: url, title: "404 - Page not found", loggedIn: req.session.loggedIn});
+    res.render("errors/error404", {url: url, title: "404 - Page not found", loggedIn: false});
 });
 //
 //              END ROUTES

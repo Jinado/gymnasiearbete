@@ -7,10 +7,11 @@ const bodyParser = require("body-parser");
 const path = require("path");
 const { check, validationResult } = require('express-validator');
 const expressSession = require("express-session");
-const database = require("./private/modules/connect");
 const fs = require("fs");
+const database = require("./private/modules/connect");
 const hash = require("./private/modules/hash");
-const auth = require("./private/modules/authentication");
+const auth = require("./private/modules/auth");
+
 
 // Express validator and session middleware
 app.use(expressSession({

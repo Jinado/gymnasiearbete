@@ -61,63 +61,70 @@ function generateSecret(){
 //                ROUTES
 // ROOT route
 
-app.get("/", (req, res) => {
-    res.render("pages/index", {title: "Hem", loggedIn: false, errors: []});
-});
-
-app.get("/test", (req, res) => {
-    if(req.cookies.loggedInToken){
-        jwt.verify(req.cookies.loggedInToken, jwtSecret, (err, result) => {
-            if(!err){
-                res.send(result.loggedIn);
-            } else {
-                res.send("Invalid token!");
-            }
-        });
+app.get("/", auth.warnedOfCookies, (req, res) => {
+    let tempErrors = [];
+    let tempLoggedIn = {loggedIn: false};
+    if(req.cookies.errorsAtLogin){
+        tempErrors = req.cookies.errorsAtLogin;
     }
+
+    if(req.cookies.loggedInToken){
+        tempLoggedIn = auth.verifyAndRetrieve(req.cookies.loggedInToken);
+        if(tempLoggedIn === null){
+            tempLoggedIn = {loggedIn: false};
+        }
+    }
+
+    res.render("pages/index", {title: "Hem", loggedIn: tempLoggedIn.loggedIn, errors: tempErrors});
 });
 
 app.post("/login", [check("email", "Du måste ange en korrekt E-postadress").isEmail()], async (req, res) => {
     let result = validationResult(req);
     if(result.errors.length !== 0){
-        res.cookie('errorsAtLogin', result.errors, { httpOnly: true, sameSite: "Strict" })
+        // MaxAge is set so that the error only shows on the page once, if the page then reloads the error won't show again
+        res.cookie('errorsAtLogin', result.errors, { httpOnly: true, sameSite: "Strict", maxAge: 1500});
 
         const loggedInToken = jwt.sign({loggedIn: false}, jwtSecret);
         res.cookie('loggedInToken', loggedInToken, { httpOnly: true, sameSite: "Strict" });
     } else {
-        // Check if the credentials match any in the database
-        //req.session.loggedIn = false;
-        
+        // Check if the credentials match any in the database       
         sqlVariablesArray = [req.body.email]; // Skickar med värdet som en array då metoden kräver detta
         const [rows, fields] = await database.runStatement("SELECT email, password FROM users WHERE email LIKE ?", [req.body.email]);
 
         if(rows.length != 0){ // If the length of the row is not 0, it found a valid match
             // Compare the passwords using BCRYPTJS
             if(await hash.compare(req.body.password, rows[0].password)){
-                //req.session.loggedIn = true;
-                //req.session.email = rows[0].email;
+                const loggedInToken = jwt.sign({loggedIn: true, email: rows[0].email}, jwtSecret);
+                res.cookie('loggedInToken', loggedInToken, { httpOnly: true, sameSite: "Strict" });
             }
         }
-        //req.session.errors = null;
     }
     res.redirect("/");
 });
 
 app.post("/logout", (req, res) => {
-    req.session.loggedIn = false;
-    req.session.email = null;
+    res.clearCookie('loggedInToken');
     res.redirect("/");
 });
 
-app.get("/create-account", async (req, res) => {
-    res.render("pages/createAccount", {title: "Skapa ett konto", secret: "52", readonly: "readonly", compName: "test", disabled: ""});
+app.get("/create-account", auth.warnedOfCookies, async (req, res) => {
+    if(req.cookies.signUpCookie){
+        const tempSignUp = auth.verifyAndRetrieve(req.cookies.signUpCookie);
+        if(tempSignUp !== null){
+            res.render("pages/createAccount", {title: "Skapa ett konto", secret: tempSignUp.secret, readonly: tempSignUp.readonly, compName: tempSignUp.compname, disabled: tempSignUp.disabled});
+        } else {
+            res.redirect("/");
+        }
+    } else {
+        res.render("pages/createAccount", {title: "Skapa ett konto", secret: "", readonly: "", compName: "", disabled: "disabled"});
+    }
 });
 
 app.post("/checked-secret", check("companySecret", "Du måste ange en korrekt företagskod").matches("^(?=.*[A-Za-z]*)(?=.*[0-9]*)(?=.{16,19})"), async (req, res) => {
     let result = validationResult(req);
     if(result.errors.length !== 0){
-        req.session.errors = result.errors;
-        console.log(result.errors);
+        // MaxAge is set so that the error only shows on the page once, if the page then reloads the error won't show again
+        res.cookie('companySecretError', result.errors, { httpOnly: true, sameSite: "Strict", maxAge: 1500});
     } else {
         let secret = req.body.companySecret; 
         let splitSecret = secret.split("-"); // Make sure to remove any dashes before using the secret in a SQL query
@@ -126,13 +133,10 @@ app.post("/checked-secret", check("companySecret", "Du måste ange en korrekt f�
             formattedSecret += part;
         });
 
-        sqlVariablesArray = [formattedSecret]; // Skickar med värdet som en array då metoden kräver detta
-        const [rows, fields] = await database.runStatement("SELECT company FROM companies WHERE secret LIKE ?;", sqlVariablesArray);
+        const [rows, fields] = await database.runStatement("SELECT company FROM companies WHERE secret LIKE ?;", [formattedSecret]);
         if(rows.length !== 0){
-            req.session.secret = secret;
-            req.session.readonly = "readonly";
-            req.session.compName = rows[0].company;
-            req.session.disabled = "";
+            const signUpCookie = jwt.sign({secret: secret, readonly: "readonly", compname: rows[0].company, disabled: ""}, jwtSecret);
+            res.cookie('signUpCookie', signUpCookie, {httpOnly: true, sameSite: "Strict", maxAge: 5000});
 
             res.redirect("/create-account");
         } else {
@@ -141,7 +145,7 @@ app.post("/checked-secret", check("companySecret", "Du måste ange en korrekt f�
     }
 });
 
-app.get("/checked-secret", (req, res) => {
+app.get("/checked-secret", auth.warnedOfCookies, (req, res) => {
     res.redirect("/create-account");
 });
 
@@ -156,33 +160,35 @@ app.post("/create-account", [
 ], async (req, res) => {
     let result = validationResult(req);
     if(result.errors.length !== 0){
-        res.cookie('errors', result.errors, { httpOnly: true, sameSite: "Strict"});
-        res.redirect("/");
-        //req.session.errors = result.errors;
+        let tempErrors = result.errors;
         let counter = 0;
-        for(let i = 0; i < req.session.errors.length; i++){
-            if(req.session.errors[i].param !== "email"){
+        for(let i = 0; i < tempErrors.length; i++){
+            if(tempErrors[i].param !== "email"){
                 counter++;
             }
         }
 
-        if(counter === req.session.errors.length){ // If it returns true, there's nothing wrong with the email adress according to express-validator
+        if(counter === tempErrors.length){ // If it returns true, there's nothing wrong with the email adress according to express-validator
             // Check to see if that email is already registered
             let [rows, fields] = await database.runStatement("SELECT email FROM users WHERE email LIKE ?", [req.body.email]);
             if(rows.length > 0){
-                if(req.session.errors === undefined){
-                    req.session.errors = [{value: req.body.email, msg: "Denna E-postadress är upptagen", param: "email", location: "body"}];
+                if(tempErrors === undefined){
+                    tempErrors = [{value: req.body.email, msg: "Denna E-postadress är upptagen", param: "email", location: "body"}];
                 } else {
-                    req.session.errors.push({value: req.body.email, msg: "Denna E-postadress är upptagen", param: "email", location: "body"});
+                    tempErrors.push({value: req.body.email, msg: "Denna E-postadress är upptagen", param: "email", location: "body"});
                 }
             }
         }
-        console.log(req.session.errors);
+        res.cookie('errorsAtSingUp', tempErrors, { httpOnly: true, sameSite: "Strict"}); // Max age? Need to handle this error
     } else if (req.body.password !== req.body.repeatPassword) {
-        if(req.session.errors === undefined){
-            req.session.errors = [{value: "****", msg: "Lösenorden stämmer ej överrens", param: "password", location: "body"}];
+        if(req.cookies.errorsAtSignUp === undefined){
+            let tempErrors = req.cookies.errorsAtSignUp;
+            tempErrors = [{value: "****", msg: "Lösenorden stämmer ej överrens", param: "password", location: "body"}];
+            res.cookie('errorsAtSignUp', tempErrors, { httpOnly: true, sameSite: "Strict"});
         } else {
-            req.session.errors.push({value: "****", msg: "Lösenorden stämmer ej överrens", param: "password", location: "body"});
+            let tempErrors = req.cookies.errorsAtSignUp;
+            tempErrors.push({value: "****", msg: "Lösenorden stämmer ej överrens", param: "password", location: "body"});
+            res.cookie('errorsAtSignUp', tempErrors, { httpOnly: true, sameSite: "Strict"});
         }
     } else { // Everything is correct
         // Hash the password and the secret answer
@@ -194,80 +200,93 @@ app.post("/create-account", [
         // Check to see if that email is already registered
         let [rows, fields] = await database.runStatement("SELECT email FROM users WHERE email LIKE ?", [req.body.email]);
         if(rows.length > 0){
-            if(req.session.errors === undefined){
-                req.session.errors = [{value: req.body.email, msg: "Denna E-postadress är upptagen", param: "email", location: "body"}];
+            if(req.cookies.errorsAtSignUp === undefined){
+               let tempErrors = [{value: req.body.email, msg: "Denna E-postadress är upptagen", param: "email", location: "body"}];
+               res.cookie('errorsAtSignUp', tempErrors, { httpOnly: true, sameSite: "Strict"});
             } else {
-                req.session.errors.push({value: req.body.email, msg: "Denna E-postadress är upptagen", param: "email", location: "body"});
+                let tempErrors = req.cookies.errorsAtSignUp;
+                tempErrors.push({value: req.body.email, msg: "Denna E-postadress är upptagen", param: "email", location: "body"});
+                res.cookie('errorsAtSignUp', tempErrors, { httpOnly: true, sameSite: "Strict"});
             }
-            console.log(req.session.errors);
             res.redirect("/create-account");
         } else {
             [rows, fields] = await database.runStatement("INSERT INTO users (email, password, security_question, answer, first_name, last_name, company) VALUES (?, ?, ?, ?, ?, ?, ?)", sqlVariablesArray);
+            res.clearCookie('errorsAtSignUp');
             res.redirect("/");
         }
     }
 
 });
 
-app.get("/my-pages", async (req, res) => {
-    const [rows, fields] = await database.runStatement("SELECT first_name, last_name FROM users WHERE email LIKE ?", [req.session.email]);
-    res.render("pages/myPages", {title: "Mina sidor", loggedIn: req.session.loggedIn, firstname: rows[0].first_name, lastname: rows[0].last_name});
-});
-
-app.post("/download", async (req, res) => {
-    if(req.session.loggedIn){
-        let [rowsFetchedUserData, fieldsUserData] = await database.runStatement("SELECT * FROM users WHERE email LIKE ?", [req.session.email]);
-        let [rowsFetchedRaspData, fieldsRaspData] = await database.runStatement("SELECT * FROM raspberries WHERE email LIKE ?", [rowsFetchedUserData[0].email]);;
-
-        // Remove all unnecessary data like passwords and user_id:s
-        let rowsUserData = [];
-        rowsFetchedUserData.forEach(el => {
-            rowsUserData.push({email: el.email, security_question: el.security_question, first_name: el.first_name, last_name: el.last_name, company: el.company});
-        });
-
-        // Remove all unnecessary data like rasp_id:s
-        let rowsRaspData = [];
-        rowsFetchedRaspData.forEach(el => {
-            rowsRaspData.push({email: el.email, string: el.string});
-        });
-        
-        let date = new Date();
-        date = date.toISOString().slice(0,19);
-        date = date.replace("T", "_").replace(/[^0-9-_]/g, "-");
-        let writeStream = fs.createWriteStream(path.join(__dirname, "/private/data/", `${rowsUserData[0].email}_${date}.txt`), { encoding: 'utf8' });
-        let dataArray = rowsUserData.concat(rowsRaspData);
-
-        // Skriv datan till filen
-        writeStream.write(JSON.stringify(dataArray), err => {if(err) {console.log(err);}});
-        writeStream.end();
-
-        // Ladda ner filen EFTER att filen är skriven
-        writeStream.on("finish", () => {
-            res.download(path.join(__dirname, "/private/data/", `${rowsUserData[0].email}_${date}.txt`), `${rowsUserData[0].email}_${date}.txt`, err => {
-                if(err) {
-                    console.log(err)
-                } else {
-                    // Delete the file if there were no errors downloading it
-                    fs.unlink(path.join(__dirname, "/private/data/", `${rowsUserData[0].email}_${date}.txt`), err => {if (err) console.log(err);});
-                }
-            });
-        });
+app.get("/my-pages", auth.warnedOfCookies, async (req, res) => {
+    const tempAccountToken = auth.verifyAndRetrieve(req.cookies.loggedInToken);
+    if(tempAccountToken !== null){
+        const [rows, fields] = await database.runStatement("SELECT first_name, last_name FROM users WHERE email LIKE ?", [tempAccountToken.email]);
+        res.render("pages/myPages", {title: "Mina sidor", loggedIn: tempAccountToken.loggedIn, firstname: rows[0].first_name, lastname: rows[0].last_name});
     } else {
         res.redirect("/");
     }
 });
 
-app.get("/test", async (req, res) => {
+app.post("/download", async (req, res) => {
+    if(req.cookies.loggedInToken){
+        const loggedInToken = auth.verifyAndRetrieve(req.cookies.loggedInToken);
+        if(loggedInToken !== null){
+            let [rowsFetchedUserData, fieldsUserData] = await database.runStatement("SELECT * FROM users WHERE email LIKE ?", [loggedInToken.email]);
+            let [rowsFetchedRaspData, fieldsRaspData] = await database.runStatement("SELECT * FROM raspberries WHERE email LIKE ?", [rowsFetchedUserData[0].email]);;
+    
+            // Remove all unnecessary data like passwords and user_id:s
+            let rowsUserData = [];
+            rowsFetchedUserData.forEach(el => {
+                rowsUserData.push({email: el.email, security_question: el.security_question, first_name: el.first_name, last_name: el.last_name, company: el.company});
+            });
+    
+            // Remove all unnecessary data like rasp_id:s
+            let rowsRaspData = [];
+            rowsFetchedRaspData.forEach(el => {
+                rowsRaspData.push({email: el.email, string: el.string});
+            });
+            
+            let date = new Date();
+            date = date.toISOString().slice(0,19);
+            date = date.replace("T", "_").replace(/[^0-9-_]/g, "-");
+            let writeStream = fs.createWriteStream(path.join(__dirname, "/private/data/", `${rowsUserData[0].email}_${date}.txt`), { encoding: 'utf8' });
+            let dataArray = rowsUserData.concat(rowsRaspData);
+    
+            // Skriv datan till filen
+            writeStream.write(JSON.stringify(dataArray), err => {if(err) {console.log(err);}});
+            writeStream.end();
+    
+            // Ladda ner filen EFTER att filen är skriven
+            writeStream.on("finish", () => {
+                res.download(path.join(__dirname, "/private/data/", `${rowsUserData[0].email}_${date}.txt`), `${rowsUserData[0].email}_${date}.txt`, err => {
+                    if(err) {
+                        console.log(err)
+                    } else {
+                        // Delete the file if there were no errors downloading it
+                        fs.unlink(path.join(__dirname, "/private/data/", `${rowsUserData[0].email}_${date}.txt`), err => {if (err) console.log(err);});
+                    }
+                });
+            });
+        } else {
+            res.redirect("/");
+        }
+    } else {
+        res.redirect("/");
+    }   
+});
+
+app.get("/test", auth.warnedOfCookies, async (req, res) => {
     res.send(generateSecret());
 });
 
 // 404 - Error
-app.get("*", (req, res) => {
+app.get("*", auth.warnedOfCookies, (req, res) => {
     const url = req.protocol + '://' + req.get('host') + req.originalUrl;
     res.render("errors/error404", {url: url, title: "404 - Page not found", loggedIn: false});
 });
 
-app.post("*", (req, res) => {
+app.post("*", auth.warnedOfCookies, (req, res) => {
     const url = req.protocol + '://' + req.get('host') + req.originalUrl;
     res.render("errors/error404", {url: url, title: "404 - Page not found", loggedIn: false});
 });

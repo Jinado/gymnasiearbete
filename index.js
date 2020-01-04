@@ -11,7 +11,7 @@ const jwt = require("jsonwebtoken");
 const database = require("./private/modules/connect");
 const hash = require("./private/modules/hash");
 const auth = require("./private/modules/auth");
-const jwtSecret = require("./private/modules/secret");
+const secret = require("./private/modules/secret");
 const cookieParser = require('cookie-parser');
 
 // Cookie parsewr
@@ -31,30 +31,6 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '/public/ejs'));
 
 //            END MIDDLEWARE
-// =======================================
-
-// =======================================
-//               FUNCTIONS
-// Returns a random integer between 0 and max (excluding max).
-// Therefore, random(3) returns either 0, 1, or 2 
-// and random(1) would always return 0
-function random(max) {
-    return Math.floor(Math.random() * Math.floor(max));
-}
-
-// Generates a secret to be associated with a specific company
-// when that company is added to the database by an admin
-// account for the first time.
-function generateSecret(){
-    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let secret = "";
-    for(let i = 0; i < 16; i++){
-        secret += alphabet[random(alphabet.length)];
-    }
-
-    return secret;
-}
-//             END FUNCTIONS
 // =======================================
 
 // =======================================
@@ -84,7 +60,7 @@ app.post("/login", [check("email", "Du måste ange en korrekt E-postadress").isE
         // MaxAge is set so that the error only shows on the page once, if the page then reloads the error won't show again
         res.cookie('errorsAtLogin', result.errors, { httpOnly: true, sameSite: "Strict", maxAge: 1500});
 
-        const loggedInToken = jwt.sign({loggedIn: false}, jwtSecret);
+        const loggedInToken = jwt.sign({loggedIn: false}, secret.jwtSecret);
         res.cookie('loggedInToken', loggedInToken, { httpOnly: true, sameSite: "Strict" });
     } else {
         // Check if the credentials match any in the database       
@@ -94,7 +70,7 @@ app.post("/login", [check("email", "Du måste ange en korrekt E-postadress").isE
         if(rows.length != 0){ // If the length of the row is not 0, it found a valid match
             // Compare the passwords using BCRYPTJS
             if(await hash.compare(req.body.password, rows[0].password)){
-                const loggedInToken = jwt.sign({loggedIn: true, email: rows[0].email, siteAdmin: rows[0].site_admin}, jwtSecret);
+                const loggedInToken = jwt.sign({loggedIn: true, email: rows[0].email, siteAdmin: rows[0].site_admin}, secret.jwtSecret);
                 res.cookie('loggedInToken', loggedInToken, { httpOnly: true, sameSite: "Strict" });
             }
         }
@@ -135,7 +111,7 @@ app.post("/checked-secret", check("companySecret", "Du måste ange en korrekt f�
 
         const [rows, fields] = await database.runStatement("SELECT company FROM companies WHERE secret LIKE ?;", [formattedSecret]);
         if(rows.length !== 0){
-            const signUpCookie = jwt.sign({secret: secret, readonly: "readonly", compname: rows[0].company, disabled: ""}, jwtSecret);
+            const signUpCookie = jwt.sign({secret: secret, readonly: "readonly", compname: rows[0].company, disabled: ""}, secret.jwtSecret);
             res.cookie('signUpCookie', signUpCookie, {httpOnly: true, sameSite: "Strict", maxAge: 5000});
 
             res.redirect("/create-account");
@@ -227,13 +203,66 @@ app.get("/my-pages", auth.warnedOfCookies, async (req, res) => {
     }
 });
 
-app.get("/manage-companies", auth.warnedOfCookies, auth.isAdmin, (req, res) => {
+app.get("/manage-companies", auth.warnedOfCookies, auth.isAdmin, async (req, res) => {
     const tempAccountToken = auth.verifyAndRetrieve(req.cookies.loggedInToken);
     if(tempAccountToken !== null){
-        res.render('pages/manageCompanies', {title: "Manage Companies", loggedIn: tempAccountToken.loggedIn});
+        const [rows, fields] = await database.runStatement("SELECT company FROM companies", null);
+        if(req.query.delete === 'success'){
+            res.render('pages/manageCompanies', {
+                title: "Manage Companies", 
+                loggedIn: tempAccountToken.loggedIn, 
+                companies: rows,
+                add: 'fail', 
+                delete: req.query.delete,
+                secret: '',
+                accounts: '',
+                searchedCompany: null});
+        } else if (req.query.secret && req.query.accounts && req.query.company){
+            res.render('pages/manageCompanies', {
+                title: "Manage Companies", 
+                loggedIn: tempAccountToken.loggedIn, 
+                companies: rows,
+                add: 'fail', 
+                delete: 'fail',
+                secret: secret.makeReadable(req.query.secret),
+                accounts: req.query.accounts,
+                searchedCompany: req.query.company});
+        } else if (req.query.add === 'success'){
+            res.render('pages/manageCompanies', {
+                title: "Manage Companies", 
+                loggedIn: tempAccountToken.loggedIn, 
+                companies: rows,
+                add: req.query.add, 
+                delete: 'fail',
+                secret: '',
+                accounts: '',
+                searchedCompany: null});
+        } else {
+            res.render('pages/manageCompanies', {
+                title: "Manage Companies", 
+                loggedIn: tempAccountToken.loggedIn, 
+                companies: rows,
+                add: 'fail', 
+                delete: 'fail',
+                secret: '',
+                accounts: '',
+                searchedCompany: null});
+        }
     }else {
         res.redirect("/");
     }
+});
+
+app.post("/manage-companies/delete", auth.warnedOfCookies, auth.isAdmin, async (req, res) => {
+    await database.runStatement("DELETE FROM companies WHERE company LIKE ?", [req.body.selectedCompany]);
+    await database.runStatement("DELETE FROM users WHERE company LIKE ?", [req.body.selectedCompany]);
+    res.redirect("/manage-companies?delete=success");
+});
+
+app.post("/manage-companies/info", auth.warnedOfCookies, auth.isAdmin, async (req, res) => {
+    const [secretRows, secretFields] = await database.runStatement("SELECT secret FROM companies WHERE company LIKE ?", [req.body.selectedCompany]);
+    const [accountRows, accountFields] = await database.runStatement("SELECT email FROM users WHERE company LIKE ?", [req.body.selectedCompany]);
+    res.redirect(`/manage-companies?company=${req.body.selectedCompany}&secret=${secretRows[0].secret}&accounts=${accountRows.length}`);
 });
 
 app.post("/download", async (req, res) => {
@@ -285,7 +314,7 @@ app.post("/download", async (req, res) => {
 });
 
 app.get("/test", auth.warnedOfCookies, async (req, res) => {
-    res.send(generateSecret());
+    res.send(secret.genereateCompanySecret());
 });
 
 // 404 - Error

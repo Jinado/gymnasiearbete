@@ -1,10 +1,10 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const jwtSecret = require("./secret");
+const secret = require("./secret");
 
 const _verifyAndRetrieve = recievedCookie => {
     try {
-        result = jwt.verify(recievedCookie, jwtSecret);
+        result = jwt.verify(recievedCookie, secret.jwtSecret);
         return result;
     } catch (error) {
         return null;
@@ -15,7 +15,7 @@ module.exports = {
     authUser: (req, res, next) => {
         // Check if there is a token cookie
         if(req.cookies.token){
-            jwt.verify(req.cookies.token, jwtSecret, (err, token) => {
+            jwt.verify(req.cookies.token, secret.jwtSecret, (err, token) => {
                 if(!err){
                     next();
                 }else{
@@ -37,7 +37,7 @@ module.exports = {
             // CHECK PASSWORD AGAINST DATABASE
             const success = await bcrypt.compare(credentials.password, user[0].password);
             if(success){
-                const token = jwt.sign({email: user[0].email}, jwtSecret, {expiresIn: "7d"});
+                const token = jwt.sign({email: user[0].email}, secret.jwtSecret, {expiresIn: "7d"});
                 return [token, success];
             }
         }

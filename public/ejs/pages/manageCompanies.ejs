@@ -23,8 +23,9 @@
                 <div class="form-group">
                     <label for="selectedCompany">Välj ett företag att ta bort</label>
                     <select name="selectedCompany" id="selectedCompany" required class="custom-select">
-                        <option selected>Emmoth's Tech Solutions</option>
-                        <option>Kattegattgymnasiet</option>
+                        <% companies.forEach(company => { %>
+                            <option><%= company.company %></option>
+                        <% }); %>
                     </select>
                 </div>
                 <button name="btnDelete" type="submit" class="btn btn-danger">Ta bort</button>
@@ -54,17 +55,22 @@
                 <div class="form-group">
                     <label for="selectedCompany">Välj ett företag att söka upp</label>
                     <select name="selectedCompany" id="selectedCompany" required class="custom-select">
-                        <option selected>Emmoth's Tech Solutions</option>
-                        <option>Kattegattgymnasiet</option>
+                        <% companies.forEach(company => { %>
+                            <% if(searchedCompany === company.company) { %>
+                                <option selected><%= company.company %></option>
+                            <% } else { %>
+                                <option><%= company.company %></option>
+                            <% } %>
+                        <% }); %>
                     </select>
                 </div>
                 <div class="form-group">
                     <label for="secret">Företagskod</label>
-                    <input type="text" class="form-control" name="secret" id="secret" readonly>
+                    <input type="text" class="form-control" name="secret" id="secret" value="<%= secret %>" readonly>
                 </div>
                 <div class="form-group">
                     <label for="amountOfEmployees">Antal personer med ett konto från detta företag</label>
-                    <input type="text" class="form-control" name="amountOfEmployees" id="amountOfEmployees" readonly>
+                    <input type="text" class="form-control" name="amountOfEmployees" id="amountOfEmployees" value="<%= accounts %>" readonly>
                 </div>
                 <button type="submit" class="btn btn-info">Hämta information</button>
             </form>

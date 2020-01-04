@@ -2,8 +2,27 @@
     margin-top: 32px;
 }
 
+div.container.container-show, div.row.title-show{
+    display: none;
+}
+
 @media(max-width: 768px){
     #checked-secret-btn{
         margin-top: 0px;
+    }
+}
+
+@media(max-width: 576px){
+    h3.title-remove{
+        display: none;
+    }
+
+    div.container.container-show, div.row.title-show{
+        display: initial;
+    }
+
+    h3.title-margin{
+        margin-top: 10%;
+        margin-bottom: -5%;
     }
 }

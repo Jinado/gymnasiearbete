@@ -2,6 +2,15 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const jwtSecret = require("./secret");
 
+const _verifyAndRetrieve = recievedCookie => {
+    try {
+        result = jwt.verify(recievedCookie, jwtSecret);
+        return result;
+    } catch (error) {
+        return null;
+    }
+};
+
 module.exports = {
     authUser: (req, res, next) => {
         // Check if there is a token cookie
@@ -35,14 +44,7 @@ module.exports = {
 
         return ["no token", false];
     },
-    verifyAndRetrieve: recievedCookie => {
-        try {
-            result = jwt.verify(recievedCookie, jwtSecret);
-            return result;
-        } catch (error) {
-            return null;
-        }
-    },
+    verifyAndRetrieve: _verifyAndRetrieve,
     warnedOfCookies: (req, res, next) => {
         if(!req.cookies.warnedOfCookies){
             const url = req.protocol + '://' + req.get('host') + req.originalUrl;
@@ -50,6 +52,18 @@ module.exports = {
             res.render("pages/warnCookie", {url: url});
         } else {
             next();
+        }
+    },
+    isAdmin: (req, res, next) =>{
+        if(req.cookies.loggedInToken){
+            const tempLoggedIn = _verifyAndRetrieve(req.cookies.loggedInToken);
+            if(tempLoggedIn.siteAdmin === 'true'){
+                next();
+            } else {
+                res.redirect("/my-pages");
+            }
+        } else {
+            res.redirect("/my-pages");
         }
     }
 }

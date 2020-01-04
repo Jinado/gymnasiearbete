@@ -32,6 +32,11 @@
                     <a class="nav-link" href="#">Kontakta oss</a>
                 </li>
             </ul>
+            <% if(loggedIn && siteAdmin === 'true') { %>
+                <form class="form-inline my-2 my-lg-0 mx-md-3" method="GET" action="/manage-companies">
+                    <button class="btn btn-outline-info my-2 my-sm-0" type="submit">Hantera företag</button>
+                </form>
+            <% } %>
             <% if(loggedIn) { %>
                 <form class="form-inline my-2 my-lg-0" method="POST" action="/logout">
                     <button class="btn btn-outline-danger my-2 my-sm-0" type="submit">Logga ut</button>

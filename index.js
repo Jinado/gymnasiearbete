@@ -89,12 +89,12 @@ app.post("/login", [check("email", "Du måste ange en korrekt E-postadress").isE
     } else {
         // Check if the credentials match any in the database       
         sqlVariablesArray = [req.body.email]; // Skickar med värdet som en array då metoden kräver detta
-        const [rows, fields] = await database.runStatement("SELECT email, password FROM users WHERE email LIKE ?", [req.body.email]);
+        const [rows, fields] = await database.runStatement("SELECT email, password, IF(site_admin, 'true', 'false') site_admin FROM users WHERE email LIKE ?", [req.body.email]);
 
         if(rows.length != 0){ // If the length of the row is not 0, it found a valid match
             // Compare the passwords using BCRYPTJS
             if(await hash.compare(req.body.password, rows[0].password)){
-                const loggedInToken = jwt.sign({loggedIn: true, email: rows[0].email}, jwtSecret);
+                const loggedInToken = jwt.sign({loggedIn: true, email: rows[0].email, siteAdmin: rows[0].site_admin}, jwtSecret);
                 res.cookie('loggedInToken', loggedInToken, { httpOnly: true, sameSite: "Strict" });
             }
         }
@@ -221,11 +221,15 @@ app.post("/create-account", [
 app.get("/my-pages", auth.warnedOfCookies, async (req, res) => {
     const tempAccountToken = auth.verifyAndRetrieve(req.cookies.loggedInToken);
     if(tempAccountToken !== null){
-        const [rows, fields] = await database.runStatement("SELECT first_name, last_name FROM users WHERE email LIKE ?", [tempAccountToken.email]);
-        res.render("pages/myPages", {title: "Mina sidor", loggedIn: tempAccountToken.loggedIn, firstname: rows[0].first_name, lastname: rows[0].last_name});
+        const [rows, fields] = await database.runStatement("SELECT first_name, last_name, IF(site_admin, 'true', 'false') site_admin FROM users WHERE email LIKE ?", [tempAccountToken.email]);
+        res.render("pages/myPages", {title: "Mina sidor", loggedIn: tempAccountToken.loggedIn, firstname: rows[0].first_name, lastname: rows[0].last_name, siteAdmin: rows[0].site_admin});
     } else {
         res.redirect("/");
     }
+});
+
+app.get("/manage-companies", auth.warnedOfCookies, auth.isAdmin, (req, res) => {
+    res.send("Manage them companies and stuff!");
 });
 
 app.post("/download", async (req, res) => {
@@ -283,12 +287,20 @@ app.get("/test", auth.warnedOfCookies, async (req, res) => {
 // 404 - Error
 app.get("*", auth.warnedOfCookies, (req, res) => {
     const url = req.protocol + '://' + req.get('host') + req.originalUrl;
-    res.render("errors/error404", {url: url, title: "404 - Page not found", loggedIn: false});
+    let tempLoggedIn = false;
+    if(req.cookies.loggedInToken){
+        tempLoggedIn = auth.verifyAndRetrieve(req.cookies.loggedInToken);
+    }
+    res.render("errors/error404", {url: url, title: "404 - Page not found", loggedIn: tempLoggedIn});
 });
 
 app.post("*", auth.warnedOfCookies, (req, res) => {
     const url = req.protocol + '://' + req.get('host') + req.originalUrl;
-    res.render("errors/error404", {url: url, title: "404 - Page not found", loggedIn: false});
+    let tempLoggedIn = false;
+    if(req.cookies.loggedInToken){
+        tempLoggedIn = auth.verifyAndRetrieve(req.cookies.loggedInToken);
+    }
+    res.render("errors/error404", {url: url, title: "404 - Page not found", loggedIn: tempLoggedIn});
 });
 //
 //              END ROUTES

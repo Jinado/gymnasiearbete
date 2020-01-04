@@ -215,7 +215,6 @@ app.post("/create-account", [
             res.redirect("/");
         }
     }
-
 });
 
 app.get("/my-pages", auth.warnedOfCookies, async (req, res) => {
@@ -229,7 +228,12 @@ app.get("/my-pages", auth.warnedOfCookies, async (req, res) => {
 });
 
 app.get("/manage-companies", auth.warnedOfCookies, auth.isAdmin, (req, res) => {
-    res.send("Manage them companies and stuff!");
+    const tempAccountToken = auth.verifyAndRetrieve(req.cookies.loggedInToken);
+    if(tempAccountToken !== null){
+        res.render('pages/manageCompanies', {title: "Manage Companies", loggedIn: tempAccountToken.loggedIn});
+    }else {
+        res.redirect("/");
+    }
 });
 
 app.post("/download", async (req, res) => {

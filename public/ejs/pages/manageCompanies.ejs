@@ -1,0 +1,75 @@
+<%- include ../partials/header.ejs %>
+
+<div class="container">
+    <div class="row">
+        <div class="col my-md-5">
+            <h1 class="text-center">Hantera Företag!</h1>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-4">
+            <h3 class="text-center">Ta bort företag</h3>
+        </div>
+        <div class="col-md-4">
+            <h3 class="text-center">Lägg till företag</h3>
+        </div>
+        <div class="col-md-4">
+            <h3 class="text-center">Kolla upp företag</h3>
+        </div>
+    </div>
+    <div class="row mt-5">
+        <div class="col-md-4">
+            <form action="/manage-companies/delete" method="POST">
+                <div class="form-group">
+                    <label for="selectedCompany">Välj ett företag att ta bort</label>
+                    <select name="selectedCompany" id="selectedCompany" required class="custom-select">
+                        <option selected>Emmoth's Tech Solutions</option>
+                        <option>Kattegattgymnasiet</option>
+                    </select>
+                </div>
+                <button name="btnDelete" type="submit" class="btn btn-danger">Ta bort</button>
+            </form>
+        </div>
+        <div class="col-md-4">
+            <form id="generateCodeForm" action="/manage-companies/generate-code" method="POST"></form>
+            <form action="/manage-companies/add" method="POST" id="addCompanyForm">
+                <div class="form-group">
+                    <label form="addCompanyForm" for="companyName">Skriv in företagets namn</label>
+                    <input form="addCompanyForm" type="text" class="form-control" name="compname" id="companyName" placeholder="Företagsnamn" required>
+                </div>
+                <div class="form-group">
+                    <div class="form-group">
+                        <label form="generateCodeForm" for="secret">Företagskod</label>
+                        <input form="generateCodeForm" type="text" class="form-control" id="secret" placeholder="XXXX-XXXX-XXXX-XXXX" readonly required>
+                    </div>
+                    <button form="generateCodeForm" style="float: left;" type="submit" class="btn btn-info">Generera kod</button>
+                </div>
+                <input form="addCompanyForm" style="display: none;" type="text" value="FAKE VALUE">
+                <!-- HAVE THIS ONE BE DISABLED OR NOT DEPENDING ON IF THERE'S A CODDE OR NOT IN THE INPUT ABOVE -->
+                <button form="addCompanyForm" type="submit" style="float: left;" class="btn btn-success ml-3" disabled>Lägg till företag</button>
+            </form>
+        </div>
+        <div class="col-md-4">
+            <form action="/manage-companies/info" method="POST">
+                <div class="form-group">
+                    <label for="selectedCompany">Välj ett företag att söka upp</label>
+                    <select name="selectedCompany" id="selectedCompany" required class="custom-select">
+                        <option selected>Emmoth's Tech Solutions</option>
+                        <option>Kattegattgymnasiet</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="secret">Företagskod</label>
+                    <input type="text" class="form-control" name="secret" id="secret" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="amountOfEmployees">Antal personer med ett konto från detta företag</label>
+                    <input type="text" class="form-control" name="amountOfEmployees" id="amountOfEmployees" readonly>
+                </div>
+                <button type="submit" class="btn btn-info">Hämta information</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<%- include ../partials/footer.ejs %>

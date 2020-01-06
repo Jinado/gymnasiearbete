@@ -5,6 +5,8 @@ function random(max) {
     return Math.floor(Math.random() * Math.floor(max));
 }
 
+const database = require("./connect");
+
 module.exports = {
     jwtSecret: "whuf&whaufjwjh$$FSFSAGHG!!fi18792sdgsd$1!13fhujhahihGDSGS%!GHhds41!GASgedg!&&291kdajwflk485wS",
     genereateCompanySecret: () => {
@@ -30,5 +32,24 @@ module.exports = {
         }
 
         return readable;
+    },
+    isUnique: async secret => {
+        const [rows, fields] = await database.runStatement("SELECT secret FROM companies;", null);
+        rows.forEach(row => {
+            if(secret === row){
+                return false;
+            }
+        });
+
+        return true;
+    },
+    prepareForDB: secret => {
+        let splitSecret = secret.split("-"); // Make sure to remove any dashes before using the secret in a SQL query
+        let formattedSecret = "";
+        splitSecret.forEach(part => {
+            formattedSecret += part;
+        });
+
+        return formattedSecret;
     }
 };

@@ -102,16 +102,12 @@ app.post("/checked-secret", check("companySecret", "Du mÃ¥ste ange en korrekt fÃ
         // MaxAge is set so that the error only shows on the page once, if the page then reloads the error won't show again
         res.cookie('companySecretError', result.errors, { httpOnly: true, sameSite: "Strict", maxAge: 1500});
     } else {
-        let secret = req.body.companySecret; 
-        let splitSecret = secret.split("-"); // Make sure to remove any dashes before using the secret in a SQL query
-        let formattedSecret = "";
-        splitSecret.forEach(part => {
-            formattedSecret += part;
-        });
+        let secretCode = req.body.companySecret;
+        let formattedSecret = secret.prepareForDB(secretCode);
 
         const [rows, fields] = await database.runStatement("SELECT company FROM companies WHERE secret LIKE ?;", [formattedSecret]);
         if(rows.length !== 0){
-            const signUpCookie = jwt.sign({secret: secret, readonly: "readonly", compname: rows[0].company, disabled: ""}, secret.jwtSecret);
+            const signUpCookie = jwt.sign({secret: secretCode, readonly: "readonly", compname: rows[0].company, disabled: ""}, secret.jwtSecret);
             res.cookie('signUpCookie', signUpCookie, {httpOnly: true, sameSite: "Strict", maxAge: 5000});
 
             res.redirect("/create-account");
@@ -216,7 +212,9 @@ app.get("/manage-companies", auth.warnedOfCookies, auth.isAdmin, async (req, res
                 delete: req.query.delete,
                 secret: '',
                 accounts: '',
-                searchedCompany: null});
+                searchedCompany: null,
+                genCode: 'XXXX-XXXX-XXXX-XXXX',
+                disabled: 'disabled'});
         } else if (req.query.secret && req.query.accounts && req.query.company){
             res.render('pages/manageCompanies', {
                 title: "Manage Companies", 
@@ -226,7 +224,9 @@ app.get("/manage-companies", auth.warnedOfCookies, auth.isAdmin, async (req, res
                 delete: 'fail',
                 secret: secret.makeReadable(req.query.secret),
                 accounts: req.query.accounts,
-                searchedCompany: req.query.company});
+                searchedCompany: req.query.company,
+                genCode: 'XXXX-XXXX-XXXX-XXXX',
+                disabled: 'disabled'});
         } else if (req.query.add === 'success'){
             res.render('pages/manageCompanies', {
                 title: "Manage Companies", 
@@ -236,7 +236,21 @@ app.get("/manage-companies", auth.warnedOfCookies, auth.isAdmin, async (req, res
                 delete: 'fail',
                 secret: '',
                 accounts: '',
-                searchedCompany: null});
+                searchedCompany: null,
+                genCode: 'XXXX-XXXX-XXXX-XXXX',
+                disabled: 'disabled'});
+        } else if (req.query.genCode){
+            res.render('pages/manageCompanies', {
+                title: "Manage Companies", 
+                loggedIn: tempAccountToken.loggedIn, 
+                companies: rows,
+                add: 'fail', 
+                delete: 'fail',
+                secret: '',
+                accounts: '',
+                searchedCompany: null,
+                genCode: secret.makeReadable(req.query.genCode),
+                disabled: ''});
         } else {
             res.render('pages/manageCompanies', {
                 title: "Manage Companies", 
@@ -246,7 +260,9 @@ app.get("/manage-companies", auth.warnedOfCookies, auth.isAdmin, async (req, res
                 delete: 'fail',
                 secret: '',
                 accounts: '',
-                searchedCompany: null});
+                searchedCompany: null,
+                genCode: 'XXXX-XXXX-XXXX-XXXX',
+                disabled: 'disabled'});
         }
     }else {
         res.redirect("/");
@@ -257,6 +273,20 @@ app.post("/manage-companies/delete", auth.warnedOfCookies, auth.isAdmin, async (
     await database.runStatement("DELETE FROM companies WHERE company LIKE ?", [req.body.selectedCompany]);
     await database.runStatement("DELETE FROM users WHERE company LIKE ?", [req.body.selectedCompany]);
     res.redirect("/manage-companies?delete=success");
+});
+
+app.post("/manage-companies/generate-code", auth.warnedOfCookies, auth.isAdmin, async (req, res) => {
+    let secretCode = "";
+    do {
+        secretCode = secret.genereateCompanySecret();
+    } while (!(await secret.isUnique(secretCode)));
+
+    res.redirect(`/manage-companies?genCode=${secretCode}`);
+});
+
+app.post("/manage-companies/add", auth.warnedOfCookies, auth.isAdmin, async (req, res) => {
+    await database.runStatement("INSERT INTO companies (company, secret) VALUE (?, ?);", [req.body.compname, secret.prepareForDB(req.body.addCompanySecret)]);
+    res.redirect(`/manage-companies?add=success`);
 });
 
 app.post("/manage-companies/info", auth.warnedOfCookies, auth.isAdmin, async (req, res) => {

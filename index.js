@@ -311,7 +311,7 @@ app.post("/download", async (req, res) => {
             // Remove all unnecessary data like rasp_id:s
             let rowsRaspData = [];
             rowsFetchedRaspData.forEach(el => {
-                rowsRaspData.push({email: el.email, string: el.string});
+                rowsRaspData.push({email: el.email, name: el.name, text: el.string});
             });
             
             let date = new Date();

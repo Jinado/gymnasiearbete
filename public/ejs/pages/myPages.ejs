@@ -51,6 +51,41 @@
                 <h1 class="text-center">Välkommen, <%= firstname %> <%= lastname %>!</h1>
             </div>
         </div>
+        <!-- YES -->
+        <div class="row">
+            <% for(let i = 0; i < 3; i++){ %>
+                <div class="col-md-6">
+                    <div style="border: 2px solid black; background-color: lightgray; border-radius: 10px;" class="p-3 mt-3">
+                        <h3 class="text-center">Raspberry <%= (i + 1) %></h3>
+                        <form action="/raspberries/update" method="POST">
+                            <div class="form-group">
+                                <label for="raspberry-text">Texten på din skärm</label>
+                                <textarea class="form-control" id="raspberry-text" name="screenText" rows="3"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary mb-2">Uppdatera</button>
+                        </form>
+                    </div>
+                </div>
+            <% } %>
+            <div class="col-md-6">
+                <div style="border: 2px solid green; background-color: lightgreen; border-radius: 10px;" class="p-3 mt-3">
+                    <h3 class="text-center">Lägg till en skärm!</h3>
+                    <form action="/raspberries/add" method="POST">
+                        <div class="form-group">
+                            <label for="raspberry-name">Namn på skärmen</label>
+                            <input type="text" class="form-control" id="raspberry-name" name="screenName" maxlength="50" placeholder="Namn av skärm">
+                            <small class="form-text text-muted">Detta namnet måste matcha det namn av skärmen du angav vid köpet. Namnet kan max vara 50 karaktärer långt.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="raspberry-text">Texten på din skärm</label>
+                            <textarea class="form-control" id="raspberry-text" name="screenText" rows="3"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success mb-2">Lägg till</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <!--
         <div class="row">
             <div class="col-md-2"></div>
             <div class="col-md-8">
@@ -61,6 +96,7 @@
             </div>
             <div class="col-md-2"></div>
         </div>
+        -->
         <div class="row mt-5">
             <div class="col-md-2"></div>
             <div class="col-md-8">
@@ -71,7 +107,7 @@
         <div class="row mt-2">
             <div class="col-md-4"></div>
             <div class="col-md-4">
-                <form class="form-inline my-2 my-lg-0" method="POST" action="/download">
+                <form class="form-inline my-2 my-lg-0 pb-5" method="POST" action="/download">
                     <button type="submit" class="btn btn-primary my-2 my-sm-0 mx-auto">Ladda ner</button>
                 </form> 
             </div>

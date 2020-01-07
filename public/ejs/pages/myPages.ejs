@@ -61,6 +61,7 @@
                                 <label for="raspberry-text">Texten på din skärm</label>
                                 <textarea class="form-control" id="raspberry-text" name="screenText" rows="1"><%= rasp.string %></textarea>
                             </div>
+                            <input type="text" style="display: none;" name="screenName" value="<%= rasp.name %>">
                             <button type="submit" class="btn btn-primary mb-2">Uppdatera</button>
                         </form>
                     </div>

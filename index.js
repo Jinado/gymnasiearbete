@@ -200,8 +200,19 @@ app.get("/my-pages", auth.warnedOfCookies, async (req, res) => {
     }
 });
 
-app.post("/raspberries/add", auth.warnedOfCookies, auth.isAdmin, async (req, res) => {
-    // req.body.screenName req.body.screenText
+app.post("/raspberries/update", auth.warnedOfCookies, async (req, res) => {
+    // Get the users mail adress
+    const tempLoggedIn = auth.verifyAndRetrieve(req.cookies.loggedInToken);
+    if(tempLoggedIn !== null){
+        // Update the text
+        await database.runStatement("UPDATE raspberries SET string = ? WHERE email LIKE ? AND name LIKE ?", [req.body.screenText, tempLoggedIn.email, req.body.screenName]);
+        res.redirect("/my-pages");
+    } else {
+        res.redirect("/");
+    }
+});
+
+app.post("/raspberries/add", auth.warnedOfCookies, async (req, res) => {
     // Get the users mail adress
     const tempLoggedIn = auth.verifyAndRetrieve(req.cookies.loggedInToken);
     if(tempLoggedIn !== null){

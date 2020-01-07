@@ -51,22 +51,21 @@
                 <h1 class="text-center">Välkommen, <%= firstname %> <%= lastname %>!</h1>
             </div>
         </div>
-        <!-- YES -->
         <div class="row">
-            <% for(let i = 0; i < 3; i++){ %>
+            <% raspData.forEach(rasp => { %>
                 <div class="col-md-6">
                     <div style="border: 2px solid black; background-color: lightgray; border-radius: 10px;" class="p-3 mt-3">
-                        <h3 class="text-center">Raspberry <%= (i + 1) %></h3>
+                        <h3 class="text-center"><%= rasp.name %></h3>
                         <form action="/raspberries/update" method="POST">
                             <div class="form-group">
                                 <label for="raspberry-text">Texten på din skärm</label>
-                                <textarea class="form-control" id="raspberry-text" name="screenText" rows="3"></textarea>
+                                <textarea class="form-control" id="raspberry-text" name="screenText" rows="1"><%= rasp.string %></textarea>
                             </div>
                             <button type="submit" class="btn btn-primary mb-2">Uppdatera</button>
                         </form>
                     </div>
                 </div>
-            <% } %>
+            <% }); %>
             <div class="col-md-6">
                 <div style="border: 2px solid green; background-color: lightgreen; border-radius: 10px;" class="p-3 mt-3">
                     <h3 class="text-center">Lägg till en skärm!</h3>
@@ -78,25 +77,13 @@
                         </div>
                         <div class="form-group">
                             <label for="raspberry-text">Texten på din skärm</label>
-                            <textarea class="form-control" id="raspberry-text" name="screenText" rows="3"></textarea>
+                            <textarea class="form-control" id="raspberry-text" name="screenText" rows="1"></textarea>
                         </div>
                         <button type="submit" class="btn btn-success mb-2">Lägg till</button>
                     </form>
                 </div>
             </div>
         </div>
-        <!--
-        <div class="row">
-            <div class="col-md-2"></div>
-            <div class="col-md-8">
-                <p class="text-center">Vid ett senare tillfälle kommer du kunna se alla Raspberry Pi:s du kontrollerar
-                    och härifrån kunna ändra texten som visas på dem. Just nu får du dock nöja dig
-                    med detta!
-                </p>
-            </div>
-            <div class="col-md-2"></div>
-        </div>
-        -->
         <div class="row mt-5">
             <div class="col-md-2"></div>
             <div class="col-md-8">

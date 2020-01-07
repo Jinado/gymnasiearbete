@@ -192,9 +192,41 @@ app.post("/create-account", [
 app.get("/my-pages", auth.warnedOfCookies, async (req, res) => {
     const tempAccountToken = auth.verifyAndRetrieve(req.cookies.loggedInToken);
     if(tempAccountToken !== null){
-        const [rows, fields] = await database.runStatement("SELECT first_name, last_name, IF(site_admin, 'true', 'false') site_admin FROM users WHERE email LIKE ?", [tempAccountToken.email]);
-        res.render("pages/myPages", {title: "Mina sidor", loggedIn: tempAccountToken.loggedIn, firstname: rows[0].first_name, lastname: rows[0].last_name, siteAdmin: rows[0].site_admin});
+        const [userRows, userFields] = await database.runStatement("SELECT first_name, last_name, IF(site_admin, 'true', 'false') site_admin FROM users WHERE email LIKE ?", [tempAccountToken.email]);
+        const [raspRows, raspFields] = await database.runStatement("SELECT name, string FROM raspberries WHERE email LIKE ?", [tempAccountToken.email]);
+        res.render("pages/myPages", {title: "Mina sidor", loggedIn: tempAccountToken.loggedIn, firstname: userRows[0].first_name, lastname: userRows[0].last_name, siteAdmin: userRows[0].site_admin, raspData: raspRows});
     } else {
+        res.redirect("/");
+    }
+});
+
+app.post("/raspberries/add", auth.warnedOfCookies, auth.isAdmin, async (req, res) => {
+    // req.body.screenName req.body.screenText
+    // Get the users mail adress
+    const tempLoggedIn = auth.verifyAndRetrieve(req.cookies.loggedInToken);
+    if(tempLoggedIn !== null){
+        const [companyRows, companyFields] = await database.runStatement("SELECT company FROM users WHERE email LIKE ?;", [tempLoggedIn.email]);
+
+        // Check if the name of the screen already exists in the database
+        const [raspRows, raspFields] = await database.runStatement("SELECT name FROM raspberries WHERE email LIKE ?;", [tempLoggedIn.email]);
+        let nameIsUnique = true;
+        // Check if name is unique
+        if(raspRows.length !== 0){
+            raspRows.forEach(row => {
+                if(row.name === req.body.screenName){
+                    nameIsUnique = false;
+                }
+            });
+        }
+
+        // Add the PI if the name is unique
+        if(nameIsUnique){
+            await database.runStatement("INSERT INTO raspberries (email, company, name, string) VALUES (?, ?, ?, ?)", [tempLoggedIn.email, companyRows[0].company, req.body.screenName, req.body.screenText]);
+            res.redirect("/my-pages?raspAdd=success");
+        } else {
+            res.redirect("/my-pages?raspAdd=fail");
+        }
+    } else { 
         res.redirect("/");
     }
 });
@@ -272,6 +304,7 @@ app.get("/manage-companies", auth.warnedOfCookies, auth.isAdmin, async (req, res
 app.post("/manage-companies/delete", auth.warnedOfCookies, auth.isAdmin, async (req, res) => {
     await database.runStatement("DELETE FROM companies WHERE company LIKE ?", [req.body.selectedCompany]);
     await database.runStatement("DELETE FROM users WHERE company LIKE ?", [req.body.selectedCompany]);
+    await database.runStatement("DELETE FROM raspberries WHERE company LIKE ?", [req.body.selectedCompany]);
     res.redirect("/manage-companies?delete=success");
 });
 
@@ -311,7 +344,7 @@ app.post("/download", async (req, res) => {
             // Remove all unnecessary data like rasp_id:s
             let rowsRaspData = [];
             rowsFetchedRaspData.forEach(el => {
-                rowsRaspData.push({email: el.email, name: el.name, text: el.string});
+                rowsRaspData.push({email: el.email, company: el.company, name: el.name, text: el.string});
             });
             
             let date = new Date();
@@ -341,10 +374,6 @@ app.post("/download", async (req, res) => {
     } else {
         res.redirect("/");
     }   
-});
-
-app.get("/test", auth.warnedOfCookies, async (req, res) => {
-    res.send(secret.genereateCompanySecret());
 });
 
 // 404 - Error

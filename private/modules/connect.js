@@ -1,6 +1,6 @@
 connObj = {
     host: "192.168.1.208",
-    user: "galaptop", // gamain is standard user
+    user: "gamain", // gamain is standard user
     password: "Timtaga.Ihyli!Ctwba.",
     database: "gymnasiearbete"
 };

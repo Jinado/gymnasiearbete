@@ -14,7 +14,7 @@ const auth = require("./private/modules/auth");
 const secret = require("./private/modules/secret");
 const cookieParser = require('cookie-parser');
 
-// Cookie parsewr
+// Cookie parser
 app.use(cookieParser());
 
 // parse application/x-www-form-urlencoded
@@ -23,7 +23,7 @@ app.use(bodyParser.urlencoded({ extended: false }))
 // parse application/json
 app.use(bodyParser.json())
 
-// Middleware that serves everything in public as a static file (due to this, the "/" route isn't necessary)
+// Middleware that serves everything in public as a static file
 app.use(express.static(path.join(__dirname, '/public')));
 
 // View Engine middleware
@@ -40,11 +40,11 @@ app.set('views', path.join(__dirname, '/public/ejs'));
 app.get("/", auth.warnedOfCookies, (req, res) => {
     let tempErrors = [];
     let tempLoggedIn = {loggedIn: false};
-    if(req.cookies.errorsAtLogin){
+    if(req.cookies.errorsAtLogin){ // Populate the error array if there were any errors on login
         tempErrors = req.cookies.errorsAtLogin;
     }
 
-    if(req.cookies.loggedInToken){
+    if(req.cookies.loggedInToken){ // Check if the user is logged in or not
         tempLoggedIn = auth.verifyAndRetrieve(req.cookies.loggedInToken);
         if(tempLoggedIn === null){
             tempLoggedIn = {loggedIn: false};
@@ -64,7 +64,6 @@ app.post("/login", [check("email", "Du måste ange en korrekt E-postadress").isE
         res.cookie('loggedInToken', loggedInToken, { httpOnly: true, sameSite: "Strict" });
     } else {
         // Check if the credentials match any in the database       
-        sqlVariablesArray = [req.body.email]; // Skickar med värdet som en array då metoden kräver detta
         const [rows, fields] = await database.runStatement("SELECT email, password, IF(site_admin, 'true', 'false') site_admin FROM users WHERE email LIKE ?", [req.body.email]);
 
         if(rows.length != 0){ // If the length of the row is not 0, it found a valid match
@@ -84,6 +83,8 @@ app.post("/logout", (req, res) => {
 });
 
 app.get("/create-account", auth.warnedOfCookies, async (req, res) => {
+    // The cookie signUpCookie stores information about the current state of the sign up process by storing specific values
+    // that decide wheter or not some text fields should now be editable or not.
     if(req.cookies.signUpCookie){
         const tempSignUp = auth.verifyAndRetrieve(req.cookies.signUpCookie);
         if(tempSignUp !== null){
@@ -103,7 +104,7 @@ app.post("/checked-secret", check("companySecret", "Du måste ange en korrekt f�
         res.cookie('companySecretError', result.errors, { httpOnly: true, sameSite: "Strict", maxAge: 1500});
     } else {
         let secretCode = req.body.companySecret;
-        let formattedSecret = secret.prepareForDB(secretCode);
+        let formattedSecret = secret.prepareForDB(secretCode); // Remove any dashes inside the string before using it in a SQL-statement
 
         const [rows, fields] = await database.runStatement("SELECT company FROM companies WHERE secret LIKE ?;", [formattedSecret]);
         if(rows.length !== 0){
@@ -117,16 +118,17 @@ app.post("/checked-secret", check("companySecret", "Du måste ange en korrekt f�
     }
 });
 
+// Makes sure this route is inaccessible if someone tries to access it with a GET request.
 app.get("/checked-secret", auth.warnedOfCookies, (req, res) => {
     res.redirect("/create-account");
 });
 
 app.post("/create-account", [
-    check("firstname", "Du måste ange ett korrekt förnamn").isAlphanumeric().isLength({min: 2, max: 255}), // Using Alphanumeric to allow dashes (-) so names like "Ann-Christin" are allowed
+    check("firstname", "Du måste ange ett korrekt förnamn").isAlphanumeric().isLength({min: 2, max: 255}), // Using Alphanumeric to allow dashes (-) so names like "Ann-Christin" are allowed, should probably change for RegEx
     check("lastname", "Du måste ange ett korrekt efternamn").isAlphanumeric().isLength({min: 2, max: 255}),
     check("email", "Du måste ange en korrekt E-postadress").isEmail(),
     check("password", "Lösenordet måste vara minst 8 karaktärer långt, ha en versal, en gemen och en siffra").matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.{8,255})"),
-    check("repeatPassword", "Lösenordet måste stämma den samma i båda fältet").isLength({min: 8, max: 255}), // Will have to check if the passwords are equal to each other inside the route's callback
+    check("repeatPassword", "Lösenordet måste vara minst 8 karaktärer långt, ha en versal, en gemen och en siffra").matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.{8,255})"), // Will have to check if the passwords are equal to each other inside the route's callback
     check("seqQuestion", "Din säkerhetsfråga måste vara minst 10 karaktärer lång och max 150").isLength({min: 10, max: 150}),
     check("answer", "Ditt säkerhetssvar måste vara minst 2 karaktärer långt och max 150").isLength({min: 2, max: 150})
 ], async (req, res) => {
@@ -164,8 +166,8 @@ app.post("/create-account", [
         }
     } else { // Everything is correct
         // Hash the password and the secret answer
-        const hashedPass = await hash.hashPass(req.body.password);
-        const hashedAnswer = await hash.hashAnswer(req.body.answer);
+        const hashedPass = await hash.hashString(req.body.password);
+        const hashedAnswer = await hash.hashString(req.body.answer);
 
         sqlVariablesArray = [req.body.email, hashedPass, req.body.seqQuestion, hashedAnswer, req.body.firstname, req.body.lastname, req.body.company];
 
@@ -204,7 +206,7 @@ app.post("/raspberries/update", auth.warnedOfCookies, async (req, res) => {
     // Get the users mail adress
     const tempLoggedIn = auth.verifyAndRetrieve(req.cookies.loggedInToken);
     if(tempLoggedIn !== null){
-        // Update the text
+        // Update the text in the database, this is then read and printed by a separate Python script on the Raspberry Pi itself.
         await database.runStatement("UPDATE raspberries SET string = ? WHERE email LIKE ? AND name LIKE ?", [req.body.screenText, tempLoggedIn.email, req.body.screenName]);
         res.redirect("/my-pages");
     } else {
@@ -244,6 +246,8 @@ app.post("/raspberries/add", auth.warnedOfCookies, async (req, res) => {
 
 app.get("/manage-companies", auth.warnedOfCookies, auth.isAdmin, async (req, res) => {
     const tempAccountToken = auth.verifyAndRetrieve(req.cookies.loggedInToken);
+    // The below if-else statements are used to display different data on the /manage-companies page
+    // depending on what actions the user has performed
     if(tempAccountToken !== null){
         const [rows, fields] = await database.runStatement("SELECT company FROM companies", null);
         if(req.query.delete === 'success'){
@@ -312,6 +316,7 @@ app.get("/manage-companies", auth.warnedOfCookies, auth.isAdmin, async (req, res
     }
 });
 
+// This route simply deletes a company from the database
 app.post("/manage-companies/delete", auth.warnedOfCookies, auth.isAdmin, async (req, res) => {
     await database.runStatement("DELETE FROM companies WHERE company LIKE ?", [req.body.selectedCompany]);
     await database.runStatement("DELETE FROM users WHERE company LIKE ?", [req.body.selectedCompany]);
@@ -319,26 +324,31 @@ app.post("/manage-companies/delete", auth.warnedOfCookies, auth.isAdmin, async (
     res.redirect("/manage-companies?delete=success");
 });
 
+// This route generates a new and unique code for a new company being added to the database
 app.post("/manage-companies/generate-code", auth.warnedOfCookies, auth.isAdmin, async (req, res) => {
     let secretCode = "";
-    do {
-        secretCode = secret.genereateCompanySecret();
+    do { // I use a DO-WHILE loop to make sure the "generateCompanySecret" method gets run at least once
+        secretCode = secret.generateCompanySecret();
     } while (!(await secret.isUnique(secretCode)));
 
     res.redirect(`/manage-companies?genCode=${secretCode}`);
 });
 
+// This route adds a company to the database. This route is only accessible after a valid, unique, company secret has been
+// generated by the above route
 app.post("/manage-companies/add", auth.warnedOfCookies, auth.isAdmin, async (req, res) => {
     await database.runStatement("INSERT INTO companies (company, secret) VALUE (?, ?);", [req.body.compname, secret.prepareForDB(req.body.addCompanySecret)]);
     res.redirect(`/manage-companies?add=success`);
 });
 
+// This route fetches some information about the company, and most importantly, its secret code
 app.post("/manage-companies/info", auth.warnedOfCookies, auth.isAdmin, async (req, res) => {
     const [secretRows, secretFields] = await database.runStatement("SELECT secret FROM companies WHERE company LIKE ?", [req.body.selectedCompany]);
     const [accountRows, accountFields] = await database.runStatement("SELECT email FROM users WHERE company LIKE ?", [req.body.selectedCompany]);
     res.redirect(`/manage-companies?company=${req.body.selectedCompany}&secret=${secretRows[0].secret}&accounts=${accountRows.length}`);
 });
 
+// This route downloads a text file with a JSON formatted string onto the user's computer that shows them what data the webpage has on them.
 app.post("/download", async (req, res) => {
     if(req.cookies.loggedInToken){
         const loggedInToken = auth.verifyAndRetrieve(req.cookies.loggedInToken);
@@ -358,23 +368,24 @@ app.post("/download", async (req, res) => {
                 rowsRaspData.push({email: el.email, company: el.company, name: el.name, text: el.string});
             });
             
+            // Name the file with the user's email and the current date.
             let date = new Date();
             date = date.toISOString().slice(0,19);
             date = date.replace("T", "_").replace(/[^0-9-_]/g, "-");
             let writeStream = fs.createWriteStream(path.join(__dirname, "/private/data/", `${rowsUserData[0].email}_${date}.txt`), { encoding: 'utf8' });
             let dataArray = rowsUserData.concat(rowsRaspData);
     
-            // Skriv datan till filen
+            // Write the fetched user data to the file
             writeStream.write(JSON.stringify(dataArray), err => {if(err) {console.log(err);}});
             writeStream.end();
     
-            // Ladda ner filen EFTER att filen är skriven
+            // Download the file after the data has been written to it
             writeStream.on("finish", () => {
                 res.download(path.join(__dirname, "/private/data/", `${rowsUserData[0].email}_${date}.txt`), `${rowsUserData[0].email}_${date}.txt`, err => {
                     if(err) {
                         console.log(err)
                     } else {
-                        // Delete the file if there were no errors downloading it
+                        // Delete the file off of the server if there were no errors downloading it
                         fs.unlink(path.join(__dirname, "/private/data/", `${rowsUserData[0].email}_${date}.txt`), err => {if (err) console.log(err);});
                     }
                 });
@@ -410,9 +421,3 @@ app.post("*", auth.warnedOfCookies, (req, res) => {
 // =======================================
 
 app.listen(5000, () => console.log("Server listening on port 5000!"));
-
-/*
-    Use "lt -p 5000 -s ga-johannes" to run the localtunnel,
-    then write the command "node index.js" in a separate terminal to
-    start the server.
-*/

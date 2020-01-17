@@ -1,17 +1,18 @@
+/* ========================== DOCUMENTATION FOR BELOW CODE =================================
+METHOD - HASHSTRING: Takes a string as its argument and returns its hashed version
+
+METHOD - COMPARE: Compares a hashed string with a non-hashed string to see if they're equal
+============================================================================================ */
+
 const bcrypt = require("bcryptjs");
 
 module.exports = {
-    hashPass: async password =>{
-        const salt = await bcrypt.genSalt(15);
-        const hashedPass = await bcrypt.hash(password, salt);
-        return hashedPass;
+    hashString: async string => {
+        const salt = await bcrypt.genSalt(12);
+        const hashedString = await bcrypt.hash(string, salt);
+        return hashedString;
     },
-    hashAnswer: async answer =>{
-        const salt = await bcrypt.genSalt();
-        const hashedAnswer = await bcrypt.hash(answer, salt);
-        return hashedAnswer;
-    },
-    compare: async (string, hashedString) =>{
+    compare: async (string, hashedString) => {
         return await bcrypt.compare(string, hashedString);
     }
 }

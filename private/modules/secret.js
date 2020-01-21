@@ -19,11 +19,9 @@ function random(max) {
     return Math.floor(Math.random() * Math.floor(max));
 }
 
-const database = require("./connect");
-
 module.exports = {
     jwtSecret: "whuf&whaufjwjh$$FSFSAGHG!!fi18792sdgsd$1!13fhujhahihGDSGS%!GHhds41!GASgedg!&&291kdajwflk485wS",
-    genereateCompanySecret: () => {
+    generateCompanySecret: () => {
         const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         let secret = "";
         for(let i = 0; i < 16; i++){
@@ -45,6 +43,7 @@ module.exports = {
         return readable;
     },
     isUnique: async secret => {
+        const database = require("./connect");
         const [rows, fields] = await database.runStatement("SELECT secret FROM companies;", null);
         rows.forEach(row => {
             if(secret === row){

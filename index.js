@@ -5,7 +5,7 @@ const app = express();
 //              MIDDLEWARE
 const bodyParser = require("body-parser");
 const path = require("path");
-const { check, validationResult } = require('express-validator');
+const { body, check, validationResult } = require('express-validator');
 const fs = require("fs");
 const jwt = require("jsonwebtoken");
 const database = require("./private/modules/connect");
@@ -54,7 +54,7 @@ app.get("/", auth.warnedOfCookies, (req, res) => {
     res.render("pages/index", {title: "Hem", loggedIn: tempLoggedIn.loggedIn, errors: tempErrors});
 });
 
-app.post("/login", [check("email", "Du måste ange en korrekt E-postadress").isEmail()], async (req, res) => {
+app.post("/login", [body("email").escape(), body("password").escape(), check("email", "Du måste ange en korrekt E-postadress").isEmail()], async (req, res) => {
     let result = validationResult(req);
     if(result.errors.length !== 0){
         // MaxAge is set so that the error only shows on the page once, if the page then reloads the error won't show again
@@ -97,7 +97,7 @@ app.get("/create-account", auth.warnedOfCookies, async (req, res) => {
     }
 });
 
-app.post("/checked-secret", check("companySecret", "Du måste ange en korrekt företagskod").matches("^(?=.*[A-Za-z]*)(?=.*[0-9]*)(?=.{16,19})"), async (req, res) => {
+app.post("/checked-secret", body("companySecret").escape(), check("companySecret", "Du måste ange en korrekt företagskod").matches("^(?=.*[A-Za-z]*)(?=.*[0-9]*)(?=.{16,19})"), async (req, res) => {
     let result = validationResult(req);
     if(result.errors.length !== 0){
         // MaxAge is set so that the error only shows on the page once, if the page then reloads the error won't show again
@@ -124,6 +124,13 @@ app.get("/checked-secret", auth.warnedOfCookies, (req, res) => {
 });
 
 app.post("/create-account", [
+    body("firstname").escape(),
+    body("lastname").escape(),
+    body("email").escape(),
+    body("password").escape(),
+    body("repeatPassword").escape(),
+    body("seqQuestion").escape(),
+    body("answer").escape(),
     check("firstname", "Du måste ange ett korrekt förnamn").isAlphanumeric().isLength({min: 2, max: 255}), // Using Alphanumeric to allow dashes (-) so names like "Ann-Christin" are allowed, should probably change for RegEx
     check("lastname", "Du måste ange ett korrekt efternamn").isAlphanumeric().isLength({min: 2, max: 255}),
     check("email", "Du måste ange en korrekt E-postadress").isEmail(),
@@ -202,7 +209,7 @@ app.get("/my-pages", auth.warnedOfCookies, async (req, res) => {
     }
 });
 
-app.post("/raspberries/update", auth.warnedOfCookies, async (req, res) => {
+app.post("/raspberries/update", body("screenText").escape(), auth.warnedOfCookies, async (req, res) => {
     // Get the users mail adress
     const tempLoggedIn = auth.verifyAndRetrieve(req.cookies.loggedInToken);
     if(tempLoggedIn !== null){
@@ -214,32 +221,54 @@ app.post("/raspberries/update", auth.warnedOfCookies, async (req, res) => {
     }
 });
 
-app.post("/raspberries/add", auth.warnedOfCookies, async (req, res) => {
+app.post("/raspberries/add", auth.warnedOfCookies, [
+    body("screenName").escape(),
+    body("screenText").escape(),
+    check("screenName", "Namnet kan ej vara tomt").not().isEmpty(),
+], async (req, res) => {
+    let result = validationResult(req);
+    if(result.errors.length == 0){
+        // Get the users mail adress
+        const tempLoggedIn = auth.verifyAndRetrieve(req.cookies.loggedInToken);
+        if(tempLoggedIn !== null){
+            const [companyRows, companyFields] = await database.runStatement("SELECT company FROM users WHERE email LIKE ?;", [tempLoggedIn.email]);
+
+            // Check if the name of the screen already exists in the database
+            const [raspRows, raspFields] = await database.runStatement("SELECT name FROM raspberries WHERE email LIKE ?;", [tempLoggedIn.email]);
+            let nameIsUnique = true;
+            // Check if name is unique
+            if(raspRows.length !== 0){
+                raspRows.forEach(row => {
+                    if(row.name === req.body.screenName){
+                        nameIsUnique = false;
+                    }
+                });
+            }
+
+            // Add the PI if the name is unique
+            if(nameIsUnique){
+                await database.runStatement("INSERT INTO raspberries (email, company, name, string) VALUES (?, ?, ?, ?)", [tempLoggedIn.email, companyRows[0].company, req.body.screenName, req.body.screenText]);
+                res.redirect("/my-pages?raspAdd=success");
+            } else {
+                res.redirect("/my-pages?raspAdd=fail");
+            }
+        } else { 
+            res.redirect("/");
+        }
+    } else {
+        res.redirect("/");
+    } 
+});
+
+app.post("/raspberries/delete", body("screenNameDel").escape(), auth.warnedOfCookies, async (req, res) => {
     // Get the users mail adress
     const tempLoggedIn = auth.verifyAndRetrieve(req.cookies.loggedInToken);
     if(tempLoggedIn !== null){
-        const [companyRows, companyFields] = await database.runStatement("SELECT company FROM users WHERE email LIKE ?;", [tempLoggedIn.email]);
-
-        // Check if the name of the screen already exists in the database
-        const [raspRows, raspFields] = await database.runStatement("SELECT name FROM raspberries WHERE email LIKE ?;", [tempLoggedIn.email]);
-        let nameIsUnique = true;
-        // Check if name is unique
-        if(raspRows.length !== 0){
-            raspRows.forEach(row => {
-                if(row.name === req.body.screenName){
-                    nameIsUnique = false;
-                }
-            });
-        }
-
-        // Add the PI if the name is unique
-        if(nameIsUnique){
-            await database.runStatement("INSERT INTO raspberries (email, company, name, string) VALUES (?, ?, ?, ?)", [tempLoggedIn.email, companyRows[0].company, req.body.screenName, req.body.screenText]);
-            res.redirect("/my-pages?raspAdd=success");
-        } else {
-            res.redirect("/my-pages?raspAdd=fail");
-        }
-    } else { 
+        // Due to the fact that I am escaping the string one more time, each & changes to &amp; so I need to change it back first
+        let screenName = req.body.screenNameDel.replace(/&amp;/g, "&");
+        await database.runStatement("DELETE FROM raspberries WHERE email LIKE ? AND name LIKE ?", [tempLoggedIn.email, screenName]);
+        res.redirect("/my-pages?delete=success");
+    } else {
         res.redirect("/");
     }
 });
@@ -336,9 +365,19 @@ app.post("/manage-companies/generate-code", auth.warnedOfCookies, auth.isAdmin, 
 
 // This route adds a company to the database. This route is only accessible after a valid, unique, company secret has been
 // generated by the above route
-app.post("/manage-companies/add", auth.warnedOfCookies, auth.isAdmin, async (req, res) => {
-    await database.runStatement("INSERT INTO companies (company, secret) VALUE (?, ?);", [req.body.compname, secret.prepareForDB(req.body.addCompanySecret)]);
-    res.redirect(`/manage-companies?add=success`);
+app.post("/manage-companies/add", [
+    body("compname").escape(), 
+    body("addCompanySecret").escape(), 
+    check("compname").not().isEmpty(), 
+    check("addCompanySecret").not().isEmpty()
+], auth.warnedOfCookies, auth.isAdmin, async (req, res) => {
+    let result = validationResult(req);
+    if(result.errors.lengt == 0){
+        await database.runStatement("INSERT INTO companies (company, secret) VALUE (?, ?);", [req.body.compname, secret.prepareForDB(req.body.addCompanySecret)]);
+        res.redirect(`/manage-companies?add=success`);
+    } else {
+        res.redirect(`/manage-companies?add=fail`);
+    }
 });
 
 // This route fetches some information about the company, and most importantly, its secret code

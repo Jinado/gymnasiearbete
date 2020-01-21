@@ -52,10 +52,12 @@
             </div>
         </div>
         <div class="row">
+            <% let counter = 0; %>
             <% raspData.forEach(rasp => { %>
                 <div class="col-md-6">
                     <div style="border: 2px solid black; background-color: lightgray; border-radius: 10px;" class="p-3 mt-3">
                         <h3 class="text-center"><%= rasp.name %></h3>
+                        <form action="/raspberries/delete" method="POST" id="deleteForm<%= counter %>"></form>
                         <form action="/raspberries/update" method="POST">
                             <div class="form-group">
                                 <label for="raspberry-text">Texten på din skärm</label>
@@ -63,9 +65,12 @@
                             </div>
                             <input type="text" style="display: none;" name="screenName" value="<%= rasp.name %>">
                             <button type="submit" class="btn btn-primary mb-2">Uppdatera</button>
+                            <input form="deleteForm<%= counter %>" type="text" style="display: none;" name="screenNameDel" value="<%= rasp.name %>">
+                            <button form="deleteForm<%= counter %>" type="submit" class="btn btn-danger mb-2 ml-2">Ta bort</button>
                         </form>
                     </div>
                 </div>
+                <% counter++; %>
             <% }); %>
             <div class="col-md-6">
                 <div style="border: 2px solid green; background-color: lightgreen; border-radius: 10px;" class="p-3 mt-3">

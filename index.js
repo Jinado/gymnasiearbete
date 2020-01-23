@@ -71,7 +71,11 @@ app.post("/login", [body("email").escape(), body("password").escape(), check("em
             if(await hash.compare(req.body.password, rows[0].password)){
                 const loggedInToken = jwt.sign({loggedIn: true, email: rows[0].email, siteAdmin: rows[0].site_admin}, secret.jwtSecret);
                 res.cookie('loggedInToken', loggedInToken, { httpOnly: true, sameSite: "Strict" });
+            } else {
+                res.cookie('errorsAtLogin', [{msg: "Inkorrekt lösenord eller E-postadress"}], { httpOnly: true, sameSite: "Strict", maxAge: 1500});
             }
+        } else {
+            res.cookie('errorsAtLogin', [{msg: "Inkorrekt lösenord eller E-postadress"}], { httpOnly: true, sameSite: "Strict", maxAge: 1500});
         }
     }
     res.redirect("/");
@@ -83,17 +87,22 @@ app.post("/logout", (req, res) => {
 });
 
 app.get("/create-account", auth.warnedOfCookies, async (req, res) => {
+    let tempErrors = [];
+    if(req.cookies.errorsAtSignUp){ // Populate the error array if there were any errors at sign up
+        tempErrors = req.cookies.errorsAtSignUp;
+    }
+
     // The cookie signUpCookie stores information about the current state of the sign up process by storing specific values
-    // that decide wheter or not some text fields should now be editable or not.
+    // that decide wether or not some text fields should now be editable or not.
     if(req.cookies.signUpCookie){
         const tempSignUp = auth.verifyAndRetrieve(req.cookies.signUpCookie);
         if(tempSignUp !== null){
-            res.render("pages/createAccount", {title: "Skapa ett konto", secret: tempSignUp.secret, readonly: tempSignUp.readonly, compName: tempSignUp.compname, disabled: tempSignUp.disabled});
+            res.render("pages/createAccount", {title: "Skapa ett konto", errors: tempErrors, secret: tempSignUp.secret, readonly: tempSignUp.readonly, compName: tempSignUp.compname, disabled: tempSignUp.disabled});
         } else {
             res.redirect("/");
         }
     } else {
-        res.render("pages/createAccount", {title: "Skapa ett konto", secret: "", readonly: "", compName: "", disabled: "disabled"});
+        res.render("pages/createAccount", {title: "Skapa ett konto", errors: tempErrors, secret: "", readonly: "", compName: "", disabled: "disabled"});
     }
 });
 
@@ -101,7 +110,7 @@ app.post("/checked-secret", body("companySecret").escape(), check("companySecret
     let result = validationResult(req);
     if(result.errors.length !== 0){
         // MaxAge is set so that the error only shows on the page once, if the page then reloads the error won't show again
-        res.cookie('companySecretError', result.errors, { httpOnly: true, sameSite: "Strict", maxAge: 1500});
+        res.cookie('errorsAtSignUp', result.errors, { httpOnly: true, sameSite: "Strict", maxAge: 1500});
     } else {
         let secretCode = req.body.companySecret;
         let formattedSecret = secret.prepareForDB(secretCode); // Remove any dashes inside the string before using it in a SQL-statement
@@ -110,12 +119,11 @@ app.post("/checked-secret", body("companySecret").escape(), check("companySecret
         if(rows.length !== 0){
             const signUpCookie = jwt.sign({secret: secretCode, readonly: "readonly", compname: rows[0].company, disabled: ""}, secret.jwtSecret);
             res.cookie('signUpCookie', signUpCookie, {httpOnly: true, sameSite: "Strict", maxAge: 5000});
-
-            res.redirect("/create-account");
         } else {
-            res.redirect("/create-account");
+            res.cookie('errorsAtSignUp', [{msg: "Denna kod är ogiltig"}], { httpOnly: true, sameSite: "Strict", maxAge: 1500});
         }
     }
+    res.redirect("/create-account");
 });
 
 // Makes sure this route is inaccessible if someone tries to access it with a GET request.
@@ -133,9 +141,9 @@ app.post("/create-account", [
     body("answer").escape(),
     check("firstname", "Du måste ange ett korrekt förnamn").isAlphanumeric().isLength({min: 2, max: 255}), // Using Alphanumeric to allow dashes (-) so names like "Ann-Christin" are allowed, should probably change for RegEx
     check("lastname", "Du måste ange ett korrekt efternamn").isAlphanumeric().isLength({min: 2, max: 255}),
-    check("email", "Du måste ange en korrekt E-postadress").isEmail(),
+    check("email", "Du måste ange en korrekt E-postadress").not().isEmpty().isEmail(),
     check("password", "Lösenordet måste vara minst 8 karaktärer långt, ha en versal, en gemen och en siffra").matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.{8,255})"),
-    check("repeatPassword", "Lösenordet måste vara minst 8 karaktärer långt, ha en versal, en gemen och en siffra").matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.{8,255})"), // Will have to check if the passwords are equal to each other inside the route's callback
+    check("repeatPassword", "Båda lösenorden måste matcha varandra").matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.{8,255})"), // Will have to check if the passwords are equal to each other inside the route's callback
     check("seqQuestion", "Din säkerhetsfråga måste vara minst 10 karaktärer lång och max 150").isLength({min: 10, max: 150}),
     check("answer", "Ditt säkerhetssvar måste vara minst 2 karaktärer långt och max 150").isLength({min: 2, max: 150})
 ], async (req, res) => {
@@ -160,16 +168,16 @@ app.post("/create-account", [
                 }
             }
         }
-        res.cookie('errorsAtSingUp', tempErrors, { httpOnly: true, sameSite: "Strict"}); // Max age? Need to handle this error
+        res.cookie('errorsAtSignUp', tempErrors, { httpOnly: true, sameSite: "Strict", maxAge: 1500});
     } else if (req.body.password !== req.body.repeatPassword) {
         if(req.cookies.errorsAtSignUp === undefined){
             let tempErrors = req.cookies.errorsAtSignUp;
             tempErrors = [{value: "****", msg: "Lösenorden stämmer ej överrens", param: "password", location: "body"}];
-            res.cookie('errorsAtSignUp', tempErrors, { httpOnly: true, sameSite: "Strict"});
+            res.cookie('errorsAtSignUp', tempErrors, { httpOnly: true, sameSite: "Strict", maxAge: 1500});
         } else {
             let tempErrors = req.cookies.errorsAtSignUp;
             tempErrors.push({value: "****", msg: "Lösenorden stämmer ej överrens", param: "password", location: "body"});
-            res.cookie('errorsAtSignUp', tempErrors, { httpOnly: true, sameSite: "Strict"});
+            res.cookie('errorsAtSignUp', tempErrors, { httpOnly: true, sameSite: "Strict", maxAge: 1500});
         }
     } else { // Everything is correct
         // Hash the password and the secret answer
@@ -183,11 +191,11 @@ app.post("/create-account", [
         if(rows.length > 0){
             if(req.cookies.errorsAtSignUp === undefined){
                let tempErrors = [{value: req.body.email, msg: "Denna E-postadress är upptagen", param: "email", location: "body"}];
-               res.cookie('errorsAtSignUp', tempErrors, { httpOnly: true, sameSite: "Strict"});
+               res.cookie('errorsAtSignUp', tempErrors, { httpOnly: true, sameSite: "Strict", maxAge: 1500});
             } else {
                 let tempErrors = req.cookies.errorsAtSignUp;
                 tempErrors.push({value: req.body.email, msg: "Denna E-postadress är upptagen", param: "email", location: "body"});
-                res.cookie('errorsAtSignUp', tempErrors, { httpOnly: true, sameSite: "Strict"});
+                res.cookie('errorsAtSignUp', tempErrors, { httpOnly: true, sameSite: "Strict", maxAge: 1500});
             }
             res.redirect("/create-account");
         } else {
@@ -196,14 +204,20 @@ app.post("/create-account", [
             res.redirect("/");
         }
     }
+    res.redirect("/create-account");
 });
 
 app.get("/my-pages", auth.warnedOfCookies, async (req, res) => {
+    let tempErrors = [];
+    if(req.cookies.errorsAtMyPages){
+        tempErrors = req.cookies.errorsAtMyPages;
+    }
+
     const tempAccountToken = auth.verifyAndRetrieve(req.cookies.loggedInToken);
     if(tempAccountToken !== null){
         const [userRows, userFields] = await database.runStatement("SELECT first_name, last_name, IF(site_admin, 'true', 'false') site_admin FROM users WHERE email LIKE ?", [tempAccountToken.email]);
         const [raspRows, raspFields] = await database.runStatement("SELECT name, string FROM raspberries WHERE email LIKE ?", [tempAccountToken.email]);
-        res.render("pages/myPages", {title: "Mina sidor", loggedIn: tempAccountToken.loggedIn, firstname: userRows[0].first_name, lastname: userRows[0].last_name, siteAdmin: userRows[0].site_admin, raspData: raspRows});
+        res.render("pages/myPages", {title: "Mina sidor", errors: tempErrors, loggedIn: tempAccountToken.loggedIn, firstname: userRows[0].first_name, lastname: userRows[0].last_name, siteAdmin: userRows[0].site_admin, raspData: raspRows});
     } else {
         res.redirect("/");
     }
@@ -250,13 +264,15 @@ app.post("/raspberries/add", auth.warnedOfCookies, [
                 await database.runStatement("INSERT INTO raspberries (email, company, name, string) VALUES (?, ?, ?, ?)", [tempLoggedIn.email, companyRows[0].company, req.body.screenName, req.body.screenText]);
                 res.redirect("/my-pages?raspAdd=success");
             } else {
-                res.redirect("/my-pages?raspAdd=fail");
+                res.cookie('errorsAtMyPages', [{msg: "Namnet är ej unikt"}], { httpOnly: true, sameSite: "Strict", maxAge: 1500});
+                res.redirect("/my-pages");
             }
         } else { 
             res.redirect("/");
         }
     } else {
-        res.redirect("/");
+        res.cookie('errorsAtMyPages', result.errors, { httpOnly: true, sameSite: "Strict", maxAge: 1500});
+        res.redirect("/my-pages");
     } 
 });
 
@@ -274,6 +290,11 @@ app.post("/raspberries/delete", body("screenNameDel").escape(), auth.warnedOfCoo
 });
 
 app.get("/manage-companies", auth.warnedOfCookies, auth.isAdmin, async (req, res) => {
+    let tempErrors = [];
+    if(req.cookies.errorsAtManageCompanies){
+        tempErrors = req.cookies.errorsAtManageCompanies;
+    }
+
     const tempAccountToken = auth.verifyAndRetrieve(req.cookies.loggedInToken);
     // The below if-else statements are used to display different data on the /manage-companies page
     // depending on what actions the user has performed
@@ -281,7 +302,8 @@ app.get("/manage-companies", auth.warnedOfCookies, auth.isAdmin, async (req, res
         const [rows, fields] = await database.runStatement("SELECT company FROM companies", null);
         if(req.query.delete === 'success'){
             res.render('pages/manageCompanies', {
-                title: "Manage Companies", 
+                title: "Manage Companies",
+                errors: tempErrors, 
                 loggedIn: tempAccountToken.loggedIn, 
                 companies: rows,
                 add: 'fail', 
@@ -293,7 +315,8 @@ app.get("/manage-companies", auth.warnedOfCookies, auth.isAdmin, async (req, res
                 disabled: 'disabled'});
         } else if (req.query.secret && req.query.accounts && req.query.company){
             res.render('pages/manageCompanies', {
-                title: "Manage Companies", 
+                title: "Manage Companies",
+                errors: tempErrors,  
                 loggedIn: tempAccountToken.loggedIn, 
                 companies: rows,
                 add: 'fail', 
@@ -305,7 +328,8 @@ app.get("/manage-companies", auth.warnedOfCookies, auth.isAdmin, async (req, res
                 disabled: 'disabled'});
         } else if (req.query.add === 'success'){
             res.render('pages/manageCompanies', {
-                title: "Manage Companies", 
+                title: "Manage Companies",
+                errors: tempErrors,  
                 loggedIn: tempAccountToken.loggedIn, 
                 companies: rows,
                 add: req.query.add, 
@@ -318,6 +342,7 @@ app.get("/manage-companies", auth.warnedOfCookies, auth.isAdmin, async (req, res
         } else if (req.query.genCode){
             res.render('pages/manageCompanies', {
                 title: "Manage Companies", 
+                errors: tempErrors, 
                 loggedIn: tempAccountToken.loggedIn, 
                 companies: rows,
                 add: 'fail', 
@@ -330,6 +355,7 @@ app.get("/manage-companies", auth.warnedOfCookies, auth.isAdmin, async (req, res
         } else {
             res.render('pages/manageCompanies', {
                 title: "Manage Companies", 
+                errors: tempErrors, 
                 loggedIn: tempAccountToken.loggedIn, 
                 companies: rows,
                 add: 'fail', 
@@ -366,17 +392,41 @@ app.post("/manage-companies/generate-code", auth.warnedOfCookies, auth.isAdmin, 
 // This route adds a company to the database. This route is only accessible after a valid, unique, company secret has been
 // generated by the above route
 app.post("/manage-companies/add", [
-    body("compname").escape(), 
     body("addCompanySecret").escape(), 
-    check("compname").not().isEmpty(), 
-    check("addCompanySecret").not().isEmpty()
+    check("compname", "Namnet kan ej vara tomt").not().isEmpty(), 
+    check("addCompanySecret", "Det måste finnas en företagskod att associera med företaget").not().isEmpty()
 ], auth.warnedOfCookies, auth.isAdmin, async (req, res) => {
     let result = validationResult(req);
-    if(result.errors.lengt == 0){
-        await database.runStatement("INSERT INTO companies (company, secret) VALUE (?, ?);", [req.body.compname, secret.prepareForDB(req.body.addCompanySecret)]);
-        res.redirect(`/manage-companies?add=success`);
+    if(result.errors.length == 0){
+        // Check if the name of the company already exists in the database
+        const [rows, fields] = await database.runStatement("SELECT company FROM companies;", null);
+        let nameIsUnique = true;
+        // Check if name is unique
+        if(rows.length !== 0){
+            rows.forEach(row => {
+                if(row.company === req.body.compname){
+                    nameIsUnique = false;
+                }
+            });
+        }
+
+        if(nameIsUnique){
+            await database.runStatement("INSERT INTO companies (company, secret) VALUE (?, ?);", [req.body.compname, secret.prepareForDB(req.body.addCompanySecret)]);
+            res.redirect(`/manage-companies?add=success`);
+        } else {
+            if(req.cookies.errorsAtManageCompanies === undefined){
+                res.cookie('errorsAtManageCompanies', [{msg: "Ett företag med detta namn är redan regristrerat"}], { httpOnly: true, sameSite: "Strict", maxAge: 1500});
+                res.redirect(`/manage-companies`);
+            } else {
+                let tempErrors = req.cookies.errorsAtManageCompanies;
+                tempErrors.push({msg: "Ett företag med detta namn är redan regristrerat"});
+                res.cookie('errorsAtManageCompanies', tempErrors, { httpOnly: true, sameSite: "Strict", maxAge: 1500});
+                res.redirect(`/manage-companies`);
+            }
+        }
     } else {
-        res.redirect(`/manage-companies?add=fail`);
+        res.cookie('errorsAtManageCompanies', result.errors, { httpOnly: true, sameSite: "Strict", maxAge: 1500});
+        res.redirect(`/manage-companies`);
     }
 });
 

@@ -6,6 +6,10 @@ div.container.container-show, div.row.title-show{
     display: none;
 }
 
+html{
+    overflow-x: hidden;
+}
+
 @media(max-width: 768px){
     #checked-secret-btn{
         margin-top: 0px;

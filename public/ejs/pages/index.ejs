@@ -2,7 +2,18 @@
 
 <% if(errors) { %>
     <% errors.forEach(error => { %>
-        <li><%= error.msg %> </li>
+        <div class="row">
+            <div class="col"></div>
+            <div class="col"></div>
+            <div class="col-md-5 mr-md-2 mt-md-2">
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <%= error.msg %>
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     <% }); %>
 <% } %> 
 

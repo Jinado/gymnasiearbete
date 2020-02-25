@@ -33,8 +33,8 @@ const _verifyAndRetrieve = recievedCookie => {
 module.exports = {
     authUser: (req, res, next) => {
         // Check if there is a token cookie
-        if(req.cookies.token){
-            jwt.verify(req.cookies.token, secret.jwtSecret, (err, token) => {
+        if(req.cookies.loggedInToken){
+            jwt.verify(req.cookies.loggedInToken, secret.jwtSecret, (err, token) => {
                 if(!err){
                     next();
                 }else{

@@ -23,7 +23,7 @@ const secret = require("./secret");
 
 const _verifyAndRetrieve = recievedCookie => {
     try {
-        result = jwt.verify(recievedCookie, secret.jwtSecret);
+        let result = jwt.verify(recievedCookie, secret.jwtSecret);
         return result;
     } catch (error) {
         return null;
@@ -34,13 +34,12 @@ module.exports = {
     authUser: (req, res, next) => {
         // Check if there is a token cookie
         if(req.cookies.loggedInToken){
-            jwt.verify(req.cookies.loggedInToken, secret.jwtSecret, (err, token) => {
-                if(!err){
-                    next();
-                }else{
-                    res.send(err.message);
-                }
-            });
+            const result = _verifyAndRetrieve(req.cookies.loggedInToken);
+            if(result.loggedIn){
+                res.next();
+            } else {
+                res.redirect("/");
+            }
         }else{
             res.redirect("/");
         }

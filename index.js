@@ -207,20 +207,24 @@ app.post("/create-account", [
     res.redirect("/create-account");
 });
 
-app.get("/my-pages", auth.warnedOfCookies, async (req, res) => {
+app.get("/my-pages", auth.warnedOfCookies, auth.authUser, async (req, res) => {
     let tempErrors = [];
     if(req.cookies.errorsAtMyPages){
         tempErrors = req.cookies.errorsAtMyPages;
     }
 
-    const tempAccountToken = auth.verifyAndRetrieve(req.cookies.loggedInToken);
+    /*const tempAccountToken = auth.verifyAndRetrieve(req.cookies.loggedInToken);
     if(tempAccountToken !== null){
         const [userRows, userFields] = await database.runStatement("SELECT first_name, last_name, IF(site_admin, 'true', 'false') site_admin FROM users WHERE email LIKE ?", [tempAccountToken.email]);
         const [raspRows, raspFields] = await database.runStatement("SELECT name, string FROM raspberries WHERE email LIKE ?", [tempAccountToken.email]);
         res.render("pages/myPages", {title: "Mina sidor", errors: tempErrors, loggedIn: tempAccountToken.loggedIn, firstname: userRows[0].first_name, lastname: userRows[0].last_name, siteAdmin: userRows[0].site_admin, raspData: raspRows});
     } else {
         res.redirect("/");
-    }
+    }*/
+    
+    const [userRows, userFields] = await database.runStatement("SELECT first_name, last_name, IF(site_admin, 'true', 'false') site_admin FROM users WHERE email LIKE ?", [tempAccountToken.email]);
+    const [raspRows, raspFields] = await database.runStatement("SELECT name, string FROM raspberries WHERE email LIKE ?", [tempAccountToken.email]);
+    res.render("pages/myPages", {title: "Mina sidor", errors: tempErrors, loggedIn: tempAccountToken.loggedIn, firstname: userRows[0].first_name, lastname: userRows[0].last_name, siteAdmin: userRows[0].site_admin, raspData: raspRows});
 });
 
 app.post("/raspberries/update", body("screenText").escape(), auth.warnedOfCookies, async (req, res) => {

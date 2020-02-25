@@ -36,7 +36,7 @@ module.exports = {
         if(req.cookies.loggedInToken){
             const result = _verifyAndRetrieve(req.cookies.loggedInToken);
             if(result.loggedIn){
-                res.next();
+                next();
             } else {
                 res.redirect("/");
             }

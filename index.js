@@ -202,6 +202,7 @@ app.post("/create-account", [
             [rows, fields] = await database.runStatement("INSERT INTO users (email, password, security_question, answer, first_name, last_name, company) VALUES (?, ?, ?, ?, ?, ?, ?)", sqlVariablesArray);
             res.clearCookie('errorsAtSignUp');
             res.redirect("/");
+            return;
         }
     }
     res.redirect("/create-account");
@@ -218,18 +219,6 @@ app.get("/my-pages", auth.warnedOfCookies, auth.authUser, async (req, res) => {
     const [userRows, userFields] = await database.runStatement("SELECT first_name, last_name, IF(site_admin, 'true', 'false') site_admin FROM users WHERE email LIKE ?", [tempAccountToken.email]);
     const [raspRows, raspFields] = await database.runStatement("SELECT name, string FROM raspberries WHERE email LIKE ?", [tempAccountToken.email]);
     res.render("pages/myPages", {title: "Mina sidor", errors: tempErrors, loggedIn: tempAccountToken.loggedIn, firstname: userRows[0].first_name, lastname: userRows[0].last_name, siteAdmin: userRows[0].site_admin, raspData: raspRows});
-});
-
-app.post("/raspberries/update", body("screenText").escape(), auth.warnedOfCookies, auth.authUser, async (req, res) => {
-    // Get the users mail adress
-    const tempLoggedIn = auth.verifyAndRetrieve(req.cookies.loggedInToken);
-    if(tempLoggedIn !== null){
-        // Update the text in the database, this is then read and printed by a separate Python script on the Raspberry Pi itself.
-        await database.runStatement("UPDATE raspberries SET string = ? WHERE email LIKE ? AND name LIKE ?", [req.body.screenText, tempLoggedIn.email, req.body.screenName]);
-        res.redirect("/my-pages");
-    } else {
-        res.redirect("/");
-    }
 });
 
 app.post("/raspberries/add", auth.warnedOfCookies, auth.authUser, [
